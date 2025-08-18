@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 )
 
 // FakeNotifier is a mock notifier
@@ -22,7 +24,9 @@ func (*FakeNotifier) Close() {}
 func (*FakeNotifier) Addr() string { return "" }
 
 // Send sets alerts and increases counter
-func (fn *FakeNotifier) Send(_ context.Context, alerts []Alert, _ map[string]string) error {
+func (fn *FakeNotifier) Send(ctx context.Context, alerts []Alert, _ map[string]string) error {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
 	fn.Lock()
 	defer fn.Unlock()
 	fn.counter += len(alerts)
@@ -51,6 +55,8 @@ type FaultyNotifier struct {
 
 // Send returns failed response
 func (fn *FaultyNotifier) Send(ctx context.Context, _ []Alert, _ map[string]string) error {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
 	d, ok := ctx.Deadline()
 	if ok {
 		time.Sleep(time.Until(d))

@@ -68,6 +68,8 @@ func (m *manager) alertAPI(gID, aID uint64) (*apiAlert, error) {
 }
 
 func (m *manager) start(ctx context.Context, groupsCfg []config.Group) error {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
 	return m.update(ctx, groupsCfg, true)
 }
 
@@ -82,6 +84,8 @@ func (m *manager) close() {
 }
 
 func (m *manager) startGroup(ctx context.Context, g *rule.Group, restore bool) error {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
 	m.wg.Add(1)
 	id := g.GetID()
 	g.Init()
@@ -99,6 +103,9 @@ func (m *manager) startGroup(ctx context.Context, g *rule.Group, restore bool) e
 
 func (m *manager) update(ctx context.Context, groupsCfg []config.Group, restore bool) error {
 	var rrPresent, arPresent bool
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
 	groupsRegistry := make(map[uint64]*rule.Group)
 	for _, cfg := range groupsCfg {
 		for _, r := range cfg.Rules {

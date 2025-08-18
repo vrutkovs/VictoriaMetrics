@@ -83,7 +83,6 @@ func NewClient(ctx context.Context, cfg Config) (*Client, error) {
 	ctx, span := logger.Trace(ctx)
 	defer span.End()
 
-
 	if cfg.Addr == "" {
 		return nil, fmt.Errorf("config.Addr can't be empty")
 	}
@@ -161,6 +160,8 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) run(ctx context.Context) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
 	ticker := time.NewTicker(c.flushInterval)
 	wr := &prompb.WriteRequest{}
 	shutdown := func() {
@@ -226,6 +227,8 @@ func GetDroppedRows() int { return int(droppedRows.Get()) }
 // it to remote-write endpoint. Flush performs limited amount of retries
 // if request fails.
 func (c *Client) flush(ctx context.Context, wr *prompb.WriteRequest) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
 	if len(wr.Timeseries) < 1 {
 		return
 	}
@@ -299,6 +302,8 @@ L:
 }
 
 func (c *Client) send(ctx context.Context, data []byte) error {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
 	r := bytes.NewReader(data)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.addr, r)
 	if err != nil {

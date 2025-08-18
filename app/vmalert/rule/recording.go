@@ -133,6 +133,8 @@ func (rr *RecordingRule) unregisterMetrics() {
 // It doesn't update internal states of the Rule and meant to be used just
 // to get time series for backfilling.
 func (rr *RecordingRule) execRange(ctx context.Context, start, end time.Time) ([]prompb.TimeSeries, error) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
 	res, err := rr.q.QueryRange(ctx, rr.Expr, start, end)
 	if err != nil {
 		return nil, err
@@ -153,6 +155,8 @@ func (rr *RecordingRule) execRange(ctx context.Context, start, end time.Time) ([
 
 // exec executes RecordingRule expression via the given Querier.
 func (rr *RecordingRule) exec(ctx context.Context, ts time.Time, limit int) ([]prompb.TimeSeries, error) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
 	start := time.Now()
 	res, req, err := rr.q.Query(ctx, rr.Expr, ts)
 	curState := StateEntry{

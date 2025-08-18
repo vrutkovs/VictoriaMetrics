@@ -1,6 +1,10 @@
 package notifier
 
-import "context"
+import (
+	"context"
+
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
+)
 
 // blackHoleNotifier is a Notifier stub, used when no notifications need
 // to be sent.
@@ -10,7 +14,9 @@ type blackHoleNotifier struct {
 }
 
 // Send will send no notifications, but increase the metric.
-func (bh *blackHoleNotifier) Send(_ context.Context, alerts []Alert, _ map[string]string) error { //nolint:revive
+func (bh *blackHoleNotifier) Send(ctx context.Context, alerts []Alert, _ map[string]string) error { //nolint:revive
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
 	bh.metrics.alertsSent.Add(len(alerts))
 	return nil
 }

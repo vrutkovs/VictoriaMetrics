@@ -14,6 +14,7 @@ import (
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vmalert/vmalertutil"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/httputil"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/promauth"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/prompb"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/promrelabel"
@@ -73,6 +74,8 @@ func (am AlertManager) Addr() string {
 
 // Send an alert or resolve message
 func (am *AlertManager) Send(ctx context.Context, alerts []Alert, headers map[string]string) error {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
 	am.metrics.alertsSent.Add(len(alerts))
 	startTime := time.Now()
 	err := am.send(ctx, alerts, headers)
@@ -84,6 +87,8 @@ func (am *AlertManager) Send(ctx context.Context, alerts []Alert, headers map[st
 }
 
 func (am *AlertManager) send(ctx context.Context, alerts []Alert, headers map[string]string) error {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
 	b := &bytes.Buffer{}
 	alertsToSend := make([]Alert, 0, len(alerts))
 	lblss := make([][]prompb.Label, 0, len(alerts))

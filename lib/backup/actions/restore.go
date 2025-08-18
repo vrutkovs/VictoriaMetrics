@@ -43,6 +43,8 @@ type Restore struct {
 
 // Run runs r with the provided settings.
 func (r *Restore) Run(ctx context.Context) error {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
 	startTime := time.Now()
 
 	// Make sure VictoriaMetrics doesn't run during the restore process.

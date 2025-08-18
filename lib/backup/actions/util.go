@@ -48,6 +48,9 @@ func runParallel(concurrency int, parts []common.Part, f func(p common.Part) err
 
 func runParallelPerPath(ctx context.Context, concurrency int, perPath map[string][]common.Part, f func(parts []common.Part) error, progress func(elapsed time.Duration)) error {
 	var err error
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
 	runWithProgress(progress, func() {
 		err = runParallelPerPathInternal(ctx, concurrency, perPath, f)
 	})

@@ -329,6 +329,8 @@ func (ar *AlertingRule) toLabels(m datasource.Metric, qFn templates.QueryFn) (*l
 // It is not thread safe.
 // It returns ALERT and ALERT_FOR_STATE time series as a result.
 func (ar *AlertingRule) execRange(ctx context.Context, start, end time.Time) ([]prompb.TimeSeries, error) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
 	res, err := ar.q.QueryRange(ctx, ar.Expr, start, end)
 	if err != nil {
 		return nil, err
@@ -399,6 +401,8 @@ const resolvedRetention = 15 * time.Minute
 // exec executes AlertingRule expression via the given Querier.
 // Based on the Querier results AlertingRule maintains notifier.Alerts
 func (ar *AlertingRule) exec(ctx context.Context, ts time.Time, limit int) ([]prompb.TimeSeries, error) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
 	start := time.Now()
 	res, req, err := ar.q.Query(ctx, ar.Expr, ts)
 	curState := StateEntry{
@@ -753,6 +757,8 @@ func firingAlertStaleTimeSeries(ls map[string]string, timestamp int64) []prompb.
 // based on previously written time series `alertForStateMetricName`.
 // Only rules with For > 0 can be restored.
 func (ar *AlertingRule) restore(ctx context.Context, q datasource.Querier, ts time.Time, lookback time.Duration) error {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
 	if ar.For < 1 {
 		return nil
 	}

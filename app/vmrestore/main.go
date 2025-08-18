@@ -107,7 +107,6 @@ func newSrcFS(ctx context.Context) (common.RemoteFS, error) {
 	ctx, span := logger.Trace(ctx)
 	defer span.End()
 
-
 	fs, err := actions.NewRemoteFS(ctx, *src)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse `-src`=%q: %w", *src, err)

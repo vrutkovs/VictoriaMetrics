@@ -204,6 +204,8 @@ func (g *Group) CreateID() uint64 {
 
 // restore restores alerts state for group rules
 func (g *Group) restore(ctx context.Context, qb datasource.QuerierBuilder, ts time.Time, lookback time.Duration) error {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
 	for _, rule := range g.Rules {
 		ar, ok := rule.(*AlertingRule)
 		if !ok {
@@ -329,6 +331,8 @@ func (g *Group) Init() {
 // Start starts group's evaluation
 func (g *Group) Start(ctx context.Context, nts func() []notifier.Notifier, rw remotewrite.RWClient, rr datasource.QuerierBuilder) {
 	defer func() { close(g.finishedCh) }()
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
 	evalTS := time.Now()
 	// sleep random duration to spread group rules evaluation
 	// over time in order to reduce load on datasource.
@@ -372,6 +376,8 @@ func (g *Group) Start(ctx context.Context, nts func() []notifier.Notifier, rw re
 	g.infof("started")
 
 	eval := func(ctx context.Context, ts time.Time) {
+		ctx, span := logger.Trace(ctx)
+		defer span.End()
 		g.metrics.iterationTotal.Inc()
 
 		start := time.Now()
