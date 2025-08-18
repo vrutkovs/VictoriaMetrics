@@ -15,6 +15,7 @@ import (
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/backup/gcsremote"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/backup/s3remote"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/flagutil"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 )
 
 var (
@@ -54,6 +55,9 @@ func runParallelPerPath(ctx context.Context, concurrency int, perPath map[string
 }
 
 func runParallelPerPathInternal(ctx context.Context, concurrency int, perPath map[string][]common.Part, f func(parts []common.Part) error) error {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
 	if concurrency <= 0 {
 		concurrency = 1
 	}
@@ -192,6 +196,9 @@ func getPartsSize(parts []common.Part) uint64 {
 
 // NewRemoteFS returns new remote fs from the given path.
 func NewRemoteFS(ctx context.Context, path string) (common.RemoteFS, error) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
 	m, err := flagutil.ParseJSONMap(*objectMetadata)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse s3 objectMetadata %q: %w", *objectMetadata, err)

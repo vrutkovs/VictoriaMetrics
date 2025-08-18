@@ -16,6 +16,7 @@ import (
 	"github.com/VictoriaMetrics/metrics"
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/httputil"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/netutil"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/promauth"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/proxy"
@@ -339,6 +340,9 @@ var (
 //
 // It immediately returns false on ctx cancel or deadline, without waiting for sleepDuration.
 func SleepCtx(ctx context.Context, sleepDuration time.Duration) bool {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
 	t := timerpool.Get(sleepDuration)
 	defer timerpool.Put(t)
 	select {

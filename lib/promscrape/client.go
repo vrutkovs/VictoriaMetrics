@@ -15,6 +15,7 @@ import (
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/chunkedbuffer"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/flagutil"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/httputil"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/netutil"
 )
 
@@ -44,6 +45,9 @@ type client struct {
 }
 
 func newClient(ctx context.Context, sw *ScrapeWork) (*client, error) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
 	ac := sw.AuthConfig
 	setHeaders := func(req *http.Request) error {
 		return sw.AuthConfig.SetHeaders(req, true)

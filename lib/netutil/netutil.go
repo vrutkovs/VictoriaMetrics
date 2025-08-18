@@ -7,6 +7,7 @@ import (
 	"net"
 	"strings"
 	"time"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 )
 
 type resolver interface {
@@ -40,6 +41,10 @@ func IsTrivialNetworkError(err error) bool {
 // The addr may be either the usual TCP address or srv+host form, where host is SRV addr.
 // If the addr has srv+host form, then the host is resolved with SRV into randomly chosen TCP address for the connection.
 func DialMaybeSRV(ctx context.Context, network, addr string) (net.Conn, error) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
+
 	if strings.HasPrefix(addr, "srv+") {
 		addr = strings.TrimPrefix(addr, "srv+")
 		if n := strings.IndexByte(addr, ':'); n >= 0 {

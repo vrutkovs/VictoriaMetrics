@@ -32,6 +32,10 @@ type snapshot struct {
 
 // Create creates a snapshot via the provided api endpoint and returns the snapshot name
 func Create(ctx context.Context, createSnapshotURL string) (string, error) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
+
 	logger.Infof("Creating snapshot")
 	u, err := url.Parse(createSnapshotURL)
 	if err != nil {
@@ -78,6 +82,10 @@ func Create(ctx context.Context, createSnapshotURL string) (string, error) {
 
 // Delete deletes a snapshot via the provided api endpoint
 func Delete(ctx context.Context, deleteSnapshotURL string, snapshotName string) error {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
+
 	logger.Infof("Deleting snapshot %s", snapshotName)
 	formData := url.Values{
 		"snapshot": {snapshotName},

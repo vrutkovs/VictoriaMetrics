@@ -170,6 +170,10 @@ func maxWaitTime() time.Duration {
 //
 // See https://www.consul.io/api-docs/features/blocking .
 func getBlockingAPIResponse(ctx context.Context, client *discoveryutil.Client, path string, index int64) ([]byte, int64, error) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
+
 	path += "&index=" + strconv.FormatInt(index, 10)
 	path += "&wait=" + fmt.Sprintf("%ds", int(maxWaitTime().Seconds()))
 	getMeta := func(resp *http.Response) {

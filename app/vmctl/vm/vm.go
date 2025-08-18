@@ -16,6 +16,7 @@ import (
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vmctl/barpool"
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vmctl/limiter"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/decimal"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 )
 
 // Config contains list of params to configure
@@ -112,6 +113,10 @@ func AddExtraLabelsToImportPath(path string, extraLabels []string) (string, erro
 
 // NewImporter creates new Importer for the given cfg.
 func NewImporter(ctx context.Context, cfg Config) (*Importer, error) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
+
 	if cfg.Concurrency < 1 {
 		return nil, fmt.Errorf("concurrency can't be lower than 1")
 	}

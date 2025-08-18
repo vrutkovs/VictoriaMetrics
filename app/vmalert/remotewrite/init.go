@@ -9,6 +9,7 @@ import (
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vmalert/vmalertutil"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/flagutil"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/httputil"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/promauth"
 )
 
@@ -66,6 +67,9 @@ func InitSecretFlags() {
 // Init creates Client object from given flags.
 // Returns nil if addr flag wasn't set.
 func Init(ctx context.Context) (*Client, error) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
 	if *addr == "" {
 		return nil, nil
 	}

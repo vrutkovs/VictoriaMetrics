@@ -63,6 +63,10 @@ func (sdc *SDConfig) MustStop() {
 }
 
 func getMXAddrLabels(ctx context.Context, sdc *SDConfig) []*promutil.Labels {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
+
 	port := 25
 	if sdc.Port != nil {
 		port = *sdc.Port
@@ -102,6 +106,10 @@ func getMXAddrLabels(ctx context.Context, sdc *SDConfig) []*promutil.Labels {
 }
 
 func getSRVAddrLabels(ctx context.Context, sdc *SDConfig) []*promutil.Labels {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
+
 	type result struct {
 		name string
 		as   []*net.SRV
@@ -137,6 +145,10 @@ func getSRVAddrLabels(ctx context.Context, sdc *SDConfig) []*promutil.Labels {
 }
 
 func getAAddrLabels(ctx context.Context, sdc *SDConfig, lookupType string) ([]*promutil.Labels, error) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
+
 	if sdc.Port == nil {
 		return nil, fmt.Errorf("missing `port` in `dns_sd_config` for `type: %s`", lookupType)
 	}

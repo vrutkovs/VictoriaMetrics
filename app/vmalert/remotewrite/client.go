@@ -80,6 +80,10 @@ type Config struct {
 // NewClient returns asynchronous client for
 // writing timeseries via remotewrite protocol.
 func NewClient(ctx context.Context, cfg Config) (*Client, error) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
+
 	if cfg.Addr == "" {
 		return nil, fmt.Errorf("config.Addr can't be empty")
 	}

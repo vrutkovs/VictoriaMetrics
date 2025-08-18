@@ -211,6 +211,10 @@ var (
 )
 
 func newManager(ctx context.Context) (*manager, error) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
+
 	q, err := datasource.Init(nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init datasource: %w", err)
@@ -331,6 +335,10 @@ See the docs at https://docs.victoriametrics.com/victoriametrics/vmalert/ .
 }
 
 func configReload(ctx context.Context, m *manager, groupsCfg []config.Group, sighupCh <-chan os.Signal) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
+
 	var configCheckCh <-chan time.Time
 	checkInterval := *configCheckInterval
 	if checkInterval > 0 {

@@ -118,6 +118,10 @@ func maxWaitTime() time.Duration {
 // getBlockingAPIResponse performs blocking request to Nomad via client and returns response.
 // See https://developer.hashicorp.com/nomad/api-docs#blocking-queries .
 func getBlockingAPIResponse(ctx context.Context, client *discoveryutil.Client, path string, index int64) ([]byte, int64, error) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
+
 	path += "&index=" + strconv.FormatInt(index, 10)
 	path += "&wait=" + fmt.Sprintf("%ds", int(maxWaitTime().Seconds()))
 	getMeta := func(resp *http.Response) {

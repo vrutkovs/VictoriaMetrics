@@ -126,6 +126,10 @@ func main() {
 }
 
 func makeBackup(ctx context.Context) error {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
+
 	dstFS, err := newDstFS(ctx)
 	if err != nil {
 		return err
@@ -212,6 +216,10 @@ func newSrcFS() (*fslocal.FS, error) {
 }
 
 func newDstFS(ctx context.Context) (common.RemoteFS, error) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
+
 	fs, err := actions.NewRemoteFS(ctx, *dst)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse `-dst`=%q: %w", *dst, err)
@@ -252,6 +260,10 @@ func hasFilepathPrefix(path, prefix string) bool {
 }
 
 func newOriginFS(ctx context.Context) (common.OriginFS, error) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
+
 	if len(*origin) == 0 {
 		return &fsnil.FS{}, nil
 	}
@@ -263,6 +275,10 @@ func newOriginFS(ctx context.Context) (common.OriginFS, error) {
 }
 
 func newRemoteOriginFS(ctx context.Context) (common.RemoteFS, error) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
+
 	if len(*origin) == 0 {
 		return nil, fmt.Errorf("-origin cannot be empty when -snapshotName and -snapshot.createURL aren't set")
 	}
