@@ -34,7 +34,6 @@ package-builder:
 app-via-docker: package-builder
 	mkdir -p gocache-for-docker
 	$(DOCKER_RUN) --rm \
-		--user $(shell id -u):$(shell id -g) \
 		--mount type=bind,src="$(shell pwd)",dst=/VictoriaMetrics \
 		-w /VictoriaMetrics \
 		--mount type=bind,src="$(shell pwd)/gocache-for-docker",dst=/gocache \
