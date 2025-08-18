@@ -1,11 +1,13 @@
 package logger
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"runtime"
 	"strings"
@@ -15,6 +17,10 @@ import (
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/buildinfo"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/stringsutil"
 	"github.com/VictoriaMetrics/metrics"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var (
@@ -355,3 +361,33 @@ func SetOutputForTests(writer io.Writer) { output = writer }
 
 // ResetOutputForTest set logger output to default value
 func ResetOutputForTest() { output = os.Stderr }
+
+func Trace(ctx context.Context, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
+	tracer := otel.GetTracerProvider().Tracer("victoriametrics")
+
+	pc, _, _, _ := runtime.Caller(1)
+	runtimeFunc := runtime.FuncForPC(pc)
+	funcName := runtimeFunc.Name()
+	file, line := runtimeFunc.FileLine(pc)
+
+	opts = append(opts, trace.WithAttributes(
+		attribute.String("location", fmt.Sprintf("%s:%d", file, line)),
+	))
+	return tracer.Start(ctx, funcName, opts...)
+}
+
+func TraceRequest(r *http.Request, opts ...trace.SpanStartOption) trace.Span {
+	tracer := otel.GetTracerProvider().Tracer("victoriametrics")
+
+	pc, _, _, _ := runtime.Caller(1)
+	runtimeFunc := runtime.FuncForPC(pc)
+	funcName := runtimeFunc.Name()
+	file, line := runtimeFunc.FileLine(pc)
+
+	opts = append(opts, trace.WithAttributes(
+		attribute.String("location", fmt.Sprintf("%s:%d", file, line)),
+	))
+	ctx, span := tracer.Start(r.Context(), funcName, opts...)
+	r = r.WithContext(ctx)
+	return span
+}
