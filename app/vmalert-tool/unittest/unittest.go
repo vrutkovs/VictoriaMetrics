@@ -66,6 +66,8 @@ func UnitTest(files []string, disableGroupLabel bool, externalLabels []string, e
 
 	// set up http server
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		span := logger.TraceRequest(r)
+		defer span.End()
 		switch r.URL.Path {
 		case "/prometheus/api/v1/query":
 			if err := prometheus.QueryHandler(nil, time.Now(), w, r); err != nil {

@@ -53,6 +53,8 @@ func (rrs *RemoteReadServer) HTTPAddr() string {
 
 func (rrs *RemoteReadServer) getReadHandler(t *testing.T) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		span := logger.TraceRequest(r)
+		defer span.End()
 		if !validateReadHeaders(t, r) {
 			t.Fatalf("invalid read headers")
 		}
@@ -128,6 +130,8 @@ func NewRemoteReadStreamServer(t *testing.T, series []*prompb.TimeSeries) *Remot
 
 func (rrs *RemoteReadServer) getStreamReadHandler(t *testing.T) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		span := logger.TraceRequest(r)
+		defer span.End()
 		if !validateStreamReadHeaders(t, r) {
 			t.Fatalf("invalid read headers")
 		}

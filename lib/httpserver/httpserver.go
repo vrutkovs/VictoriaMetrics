@@ -181,10 +181,14 @@ func serveWithListener(addr string, ln net.Listener, rh RequestHandler, disableB
 	rhw := rh
 	if !disableBuiltinRoutes {
 		rhw = func(w http.ResponseWriter, r *http.Request) bool {
+			span := logger.TraceRequest(r)
+			defer span.End()
 			return builtinRoutesHandler(&s, r, w, rh)
 		}
 	}
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		span := logger.TraceRequest(r)
+		defer span.End()
 		handlerWrapper(w, r, rhw)
 	})
 	if !*disableResponseCompression {
@@ -207,7 +211,6 @@ func serveWithListener(addr string, ln net.Listener, rh RequestHandler, disableB
 func whetherToCloseConn(r *http.Request) bool {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	if *connTimeout <= 0 {
 		return false
@@ -305,7 +308,6 @@ func handlerWrapper(w http.ResponseWriter, r *http.Request, rh RequestHandler) {
 	span := logger.TraceRequest(r)
 	defer span.End()
 
-
 	// All the VictoriaMetrics code assumes that panic stops the process.
 	// Unfortunately, the standard net/http.Server recovers from panics in request handlers,
 	// so VictoriaMetrics state can become inconsistent after the recovered panic.
@@ -373,8 +375,6 @@ func handlerWrapper(w http.ResponseWriter, r *http.Request, rh RequestHandler) {
 func builtinRoutesHandler(s *server, r *http.Request, w http.ResponseWriter, rh RequestHandler) bool {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
-
 
 	h := w.Header()
 
@@ -478,7 +478,6 @@ func CheckAuthFlag(w http.ResponseWriter, r *http.Request, expectedKey *flagutil
 	span := logger.TraceRequest(r)
 	defer span.End()
 
-
 	expectedValue := expectedKey.Get()
 	if expectedValue == "" {
 		return CheckBasicAuth(w, r)
@@ -501,7 +500,6 @@ func CheckAuthFlag(w http.ResponseWriter, r *http.Request, expectedKey *flagutil
 func CheckBasicAuth(w http.ResponseWriter, r *http.Request) bool {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	if len(*httpAuthUsername) == 0 {
 		// HTTP Basic Auth is disabled.
@@ -533,7 +531,6 @@ func EnableCORS(w http.ResponseWriter, _ *http.Request) {
 func pprofHandler(profileName string, w http.ResponseWriter, r *http.Request) {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	// This switch has been stolen from init func at https://golang.org/src/net/http/pprof/pprof.go
 	switch profileName {
@@ -590,7 +587,6 @@ var faviconData []byte
 func GetQuotedRemoteAddr(r *http.Request) string {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	remoteAddr := r.RemoteAddr
 	if addr := r.Header.Get("X-Forwarded-For"); addr != "" {
@@ -683,7 +679,6 @@ func Errorf(w http.ResponseWriter, r *http.Request, format string, args ...any) 
 	span := logger.TraceRequest(r)
 	defer span.End()
 
-
 	errStr := fmt.Sprintf(format, args...)
 	logHTTPError(r, errStr)
 
@@ -711,7 +706,6 @@ func Errorf(w http.ResponseWriter, r *http.Request, format string, args ...any) 
 func logHTTPError(r *http.Request, errStr string) {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	remoteAddr := GetQuotedRemoteAddr(r)
 	requestURI := GetRequestURI(r)
@@ -771,7 +765,6 @@ func WriteAPIHelp(w io.Writer, pathList [][2]string) {
 func GetRequestURI(r *http.Request) string {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	requestURI := r.RequestURI
 	if r.Method != http.MethodPost {
