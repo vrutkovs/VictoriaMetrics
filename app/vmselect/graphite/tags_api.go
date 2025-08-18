@@ -94,6 +94,8 @@ func TagsTagSeriesHandler(startTime time.Time, w http.ResponseWriter, r *http.Re
 //
 // See https://graphite.readthedocs.io/en/stable/tags.html#adding-series-to-the-tagdb
 func TagsTagMultiSeriesHandler(startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
 	return registerMetrics(startTime, w, r, true)
 }
 

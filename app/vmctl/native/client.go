@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vmctl/auth"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 )
 
 const (
@@ -144,6 +145,8 @@ func (c *Client) GetSourceTenants(ctx context.Context, f Filter) ([]string, erro
 }
 
 func (c *Client) do(req *http.Request, expSC int) (*http.Response, error) {
+	span := logger.TraceRequest(req)
+	defer span.End()
 	if c.AuthCfg != nil {
 		c.AuthCfg.SetHeaders(req, true)
 	}

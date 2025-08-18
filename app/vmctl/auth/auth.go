@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/fasttime"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 )
 
 // HTTPClientConfig represents http client config.
@@ -91,6 +92,8 @@ type Config struct {
 
 // SetHeaders sets the configured ac headers to req.
 func (ac *Config) SetHeaders(req *http.Request, setAuthHeader bool) {
+	span := logger.TraceRequest(req)
+	defer span.End()
 	reqHeaders := req.Header
 	for _, h := range ac.headers {
 		reqHeaders.Set(h.key, h.value)

@@ -9,6 +9,7 @@ import (
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vmagent/remotewrite"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/auth"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/bytesutil"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/prompb"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/protoparser/newrelic"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/protoparser/newrelic/stream"
@@ -24,6 +25,8 @@ var (
 
 // InsertHandlerForHTTP processes remote write for NewRelic POST /infra/v2/metrics/events/bulk request.
 func InsertHandlerForHTTP(at *auth.Token, req *http.Request) error {
+	span := logger.TraceRequest(req)
+	defer span.End()
 	extraLabels, err := protoparserutil.GetExtraLabels(req)
 	if err != nil {
 		return err

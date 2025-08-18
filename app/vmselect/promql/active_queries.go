@@ -8,13 +8,17 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/stringsutil"
 )
 
 // ActiveQueriesHandler returns response to /api/v1/status/active_queries
 //
 // It writes a JSON with active queries to w.
-func ActiveQueriesHandler(w http.ResponseWriter, _ *http.Request) {
+func ActiveQueriesHandler(w http.ResponseWriter, r *http.Request) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	aqes := activeQueriesV.GetAll()
 
 	w.Header().Set("Content-Type", "application/json")

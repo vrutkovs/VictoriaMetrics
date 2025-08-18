@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vmalert/datasource"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/prompb"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/promrelabel"
 )
@@ -49,6 +50,8 @@ func (cw *curlWriter) add(str string) {
 }
 
 func requestToCurl(req *http.Request) string {
+	span := logger.TraceRequest(req)
+	defer span.End()
 	if req == nil || req.URL == nil {
 		return ""
 	}

@@ -21,6 +21,9 @@ var (
 
 // InsertHandler processes `/api/v1/import/native` request.
 func InsertHandler(req *http.Request) error {
+	span := logger.TraceRequest(req)
+	defer span.End()
+
 	extraLabels, err := protoparserutil.GetExtraLabels(req)
 	if err != nil {
 		return err

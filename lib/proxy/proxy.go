@@ -67,6 +67,9 @@ func (u *URL) String() string {
 
 // SetHeaders sets headers to req according to u and ac configs.
 func (u *URL) SetHeaders(ac *promauth.Config, req *http.Request) error {
+	span := logger.TraceRequest(req)
+	defer span.End()
+
 	ah, err := u.getAuthHeader(ac)
 	if err != nil {
 		return fmt.Errorf("cannot obtain Proxy-Authorization headers: %w", err)

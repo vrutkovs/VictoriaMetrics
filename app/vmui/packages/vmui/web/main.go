@@ -5,6 +5,8 @@ import (
 	"flag"
 	"log"
 	"net/http"
+
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 )
 
 // specific files
@@ -21,6 +23,9 @@ func main() {
 	handler := http.NewServeMux()
 	handler.Handle("/", http.FileServer(http.FS(files)))
 	handler.HandleFunc("/health", func(writer http.ResponseWriter, request *http.Request) {
+		span := logger.TraceRequest(request)
+		defer span.End()
+
 		writer.WriteHeader(http.StatusOK)
 		_, _ = writer.Write([]byte(`OK`))
 	})

@@ -10,6 +10,7 @@ import (
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vmagent/remotewrite"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/auth"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/bytesutil"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/prompb"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/promrelabel"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/protoparser/influx"
@@ -45,6 +46,8 @@ func InsertHandlerForReader(at *auth.Token, r io.Reader, encoding string) error 
 //
 // See https://github.com/influxdata/influxdb/blob/4cbdc197b8117fee648d62e2e5be75c6575352f0/tsdb/README.md
 func InsertHandlerForHTTP(at *auth.Token, req *http.Request) error {
+	span := logger.TraceRequest(req)
+	defer span.End()
 	extraLabels, err := protoparserutil.GetExtraLabels(req)
 	if err != nil {
 		return err

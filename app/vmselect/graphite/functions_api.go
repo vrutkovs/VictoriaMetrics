@@ -18,7 +18,6 @@ func FunctionsHandler(w http.ResponseWriter, r *http.Request) error {
 	span := logger.TraceRequest(r)
 	defer span.End()
 
-
 	grouped := httputil.GetBool(r, "grouped")
 	group := r.FormValue("group")
 	result := make(map[string]any)
@@ -45,6 +44,8 @@ func FunctionsHandler(w http.ResponseWriter, r *http.Request) error {
 //
 // See https://graphite.readthedocs.io/en/latest/functions.html#function-api
 func FunctionDetailsHandler(funcName string, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
 	result := funcs[funcName]
 	if result == nil {
 		return fmt.Errorf("cannot find function %q", funcName)
@@ -55,7 +56,6 @@ func FunctionDetailsHandler(funcName string, w http.ResponseWriter, r *http.Requ
 func writeJSON(result any, w http.ResponseWriter, r *http.Request) error {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	data, err := json.Marshal(result)
 	if err != nil {

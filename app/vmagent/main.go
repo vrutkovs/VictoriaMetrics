@@ -206,6 +206,8 @@ func main() {
 func getOpenTSDBHTTPInsertHandler() func(req *http.Request) error {
 	if !remotewrite.MultitenancyEnabled() {
 		return func(req *http.Request) error {
+			span := logger.TraceRequest(req)
+			defer span.End()
 			path := strings.ReplaceAll(req.URL.Path, "//", "/")
 			if path != "/api/put" {
 				return fmt.Errorf("unsupported path requested: %q; expecting '/api/put'", path)
@@ -214,6 +216,8 @@ func getOpenTSDBHTTPInsertHandler() func(req *http.Request) error {
 		}
 	}
 	return func(req *http.Request) error {
+		span := logger.TraceRequest(req)
+		defer span.End()
 		path := strings.ReplaceAll(req.URL.Path, "//", "/")
 		at, err := getAuthTokenFromPath(path)
 		if err != nil {
@@ -240,7 +244,6 @@ func getAuthTokenFromPath(path string) (*auth.Token, error) {
 func requestHandler(w http.ResponseWriter, r *http.Request) bool {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	if r.URL.Path == "/" {
 		if r.Method != http.MethodGet {
@@ -514,7 +517,6 @@ func requestHandler(w http.ResponseWriter, r *http.Request) bool {
 func processMultitenantRequest(w http.ResponseWriter, r *http.Request, path string) bool {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	p, err := httpserver.ParsePath(path)
 	if err != nil {

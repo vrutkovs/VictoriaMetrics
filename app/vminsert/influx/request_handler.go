@@ -9,6 +9,7 @@ import (
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vminsert/common"
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vminsert/relabel"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/bytesutil"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/prompb"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/protoparser/influx"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/protoparser/influx/stream"
@@ -43,6 +44,9 @@ func InsertHandlerForReader(r io.Reader) error {
 //
 // See https://github.com/influxdata/influxdb/blob/4cbdc197b8117fee648d62e2e5be75c6575352f0/tsdb/README.md
 func InsertHandlerForHTTP(req *http.Request) error {
+	span := logger.TraceRequest(req)
+	defer span.End()
+
 	extraLabels, err := protoparserutil.GetExtraLabels(req)
 	if err != nil {
 		return err

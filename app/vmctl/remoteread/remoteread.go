@@ -13,6 +13,7 @@ import (
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vmctl/vm"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/bytesutil"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
 	"github.com/prometheus/prometheus/config"
@@ -152,6 +153,8 @@ func (c *Client) Read(ctx context.Context, filter *Filter, streamCb StreamCallba
 }
 
 func (c *Client) do(req *http.Request) (*http.Response, error) {
+	span := logger.TraceRequest(req)
+	defer span.End()
 	if c.user != "" {
 		req.SetBasicAuth(c.user, c.password)
 	}

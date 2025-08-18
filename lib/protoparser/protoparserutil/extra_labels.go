@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/prompb"
 )
 
@@ -14,6 +15,8 @@ import (
 // It also extracts Pushgateways-compatible extra labels from req.URL.Path
 // according to https://github.com/prometheus/pushgateway#url .
 func GetExtraLabels(req *http.Request) ([]prompb.Label, error) {
+	span := logger.TraceRequest(req)
+	defer span.End()
 	labels, err := getPushgatewayLabels(req.URL.Path)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse pushgateway-style labels from %q: %w", req.URL.Path, err)

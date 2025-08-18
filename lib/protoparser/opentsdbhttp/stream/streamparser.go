@@ -9,6 +9,7 @@ import (
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/fasttime"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/flagutil"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/protoparser/opentsdbhttp"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/protoparser/protoparserutil"
 	"github.com/VictoriaMetrics/metrics"
@@ -26,6 +27,8 @@ var (
 //
 // callback shouldn't hold rows after returning.
 func Parse(req *http.Request, callback func(rows []opentsdbhttp.Row) error) error {
+	span := logger.TraceRequest(req)
+	defer span.End()
 	readCalls.Inc()
 	encoding := req.Header.Get("Content-Encoding")
 	err := protoparserutil.ReadUncompressedData(req.Body, encoding, maxInsertRequestSize, func(data []byte) error {

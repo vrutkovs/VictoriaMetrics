@@ -41,6 +41,8 @@ func GetMaxQueryDuration(r *http.Request) time.Duration {
 
 // GetDeadlineForQuery returns deadline for the given query r.
 func GetDeadlineForQuery(r *http.Request, startTime time.Time) Deadline {
+	span := logger.TraceRequest(r)
+	defer span.End()
 	dMax := maxQueryDuration.Milliseconds()
 	return getDeadlineWithMaxDuration(r, startTime, dMax, "-search.maxQueryDuration")
 }
@@ -56,6 +58,9 @@ func GetDeadlineForStatusRequest(r *http.Request, startTime time.Time) Deadline 
 
 // GetDeadlineForExport returns deadline for the given request to /api/v1/export.
 func GetDeadlineForExport(r *http.Request, startTime time.Time) Deadline {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	dMax := maxExportDuration.Milliseconds()
 	return getDeadlineWithMaxDuration(r, startTime, dMax, "-search.maxExportDuration")
 }
@@ -71,6 +76,9 @@ func GetDeadlineForLabelsAPI(r *http.Request, startTime time.Time) Deadline {
 
 // GetDeadlineForDelete returns deadline for the given request to /api/v1/admin/tsdb/delete_series.
 func GetDeadlineForDelete(r *http.Request, startTime time.Time) Deadline {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	dMax := maxDeleteDuration.Milliseconds()
 	return getDeadlineWithMaxDuration(r, startTime, dMax, "-search.maxDeleteDuration")
 }

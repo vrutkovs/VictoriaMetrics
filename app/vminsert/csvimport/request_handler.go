@@ -5,6 +5,7 @@ import (
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vminsert/common"
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vminsert/relabel"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/prompb"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/protoparser/csvimport"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/protoparser/csvimport/stream"
@@ -19,6 +20,9 @@ var (
 
 // InsertHandler processes /api/v1/import/csv requests.
 func InsertHandler(req *http.Request) error {
+	span := logger.TraceRequest(req)
+	defer span.End()
+
 	extraLabels, err := protoparserutil.GetExtraLabels(req)
 	if err != nil {
 		return err

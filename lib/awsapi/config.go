@@ -130,6 +130,9 @@ func (cfg *Config) GetEC2APIResponse(action, filtersQueryString, nextPageToken s
 
 // SignRequest signs request for service access and payloadHash.
 func (cfg *Config) SignRequest(req *http.Request, payloadHash string) error {
+	span := logger.TraceRequest(req)
+	defer span.End()
+
 	ac, err := cfg.getFreshAPICredentials()
 	if err != nil {
 		return err

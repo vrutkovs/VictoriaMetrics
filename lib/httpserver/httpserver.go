@@ -105,7 +105,10 @@ type ServeOptions struct {
 // By default all the responses are transparently compressed, since egress traffic is usually expensive.
 func Serve(addrs []string, rh RequestHandler, opts ServeOptions) {
 	if rh == nil {
-		rh = func(_ http.ResponseWriter, _ *http.Request) bool {
+		rh = func(_ http.ResponseWriter, r *http.Request) bool {
+			span := logger.TraceRequest(r)
+			defer span.End()
+
 			return false
 		}
 	}
@@ -520,7 +523,10 @@ func CheckBasicAuth(w http.ResponseWriter, r *http.Request) bool {
 
 // EnableCORS enables https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
 // on the response.
-func EnableCORS(w http.ResponseWriter, _ *http.Request) {
+func EnableCORS(w http.ResponseWriter, r *http.Request) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	if *disableCORS {
 		// see https://github.com/VictoriaMetrics/VictoriaMetrics/issues/8680
 		return
@@ -813,6 +819,9 @@ func Redirect(w http.ResponseWriter, url string) {
 
 // LogError logs the errStr with the context from req.
 func LogError(req *http.Request, errStr string) {
+	span := logger.TraceRequest(req)
+	defer span.End()
+
 	uri := GetRequestURI(req)
 	remoteAddr := GetQuotedRemoteAddr(req)
 	logger.Errorf("uri: %s, remote address: %q: %s", uri, remoteAddr, errStr)

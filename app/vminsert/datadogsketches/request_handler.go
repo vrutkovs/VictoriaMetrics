@@ -5,6 +5,7 @@ import (
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vminsert/common"
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vminsert/relabel"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/prompb"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/protoparser/datadogsketches"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/protoparser/datadogsketches/stream"
@@ -20,6 +21,9 @@ var (
 
 // InsertHandlerForHTTP processes remote write for DataDog POST /api/beta/sketches request.
 func InsertHandlerForHTTP(req *http.Request) error {
+	span := logger.TraceRequest(req)
+	defer span.End()
+
 	extraLabels, err := protoparserutil.GetExtraLabels(req)
 	if err != nil {
 		return err

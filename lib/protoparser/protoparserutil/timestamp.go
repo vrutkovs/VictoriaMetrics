@@ -4,12 +4,17 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 )
 
 // GetTimestamp extracts unix timestamp in milliseconds from `timestamp` query arg.
 //
 // It returns 0 if there is no `timestamp` query arg.
 func GetTimestamp(req *http.Request) (int64, error) {
+	span := logger.TraceRequest(req)
+	defer span.End()
+
 	ts := req.URL.Query().Get("timestamp")
 	if len(ts) == 0 {
 		return 0, nil

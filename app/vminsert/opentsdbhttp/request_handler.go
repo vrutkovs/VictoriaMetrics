@@ -6,6 +6,7 @@ import (
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vminsert/common"
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vminsert/relabel"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/prompb"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/protoparser/opentsdbhttp"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/protoparser/opentsdbhttp/stream"
@@ -21,6 +22,9 @@ var (
 // InsertHandler processes HTTP OpenTSDB put requests.
 // See http://opentsdb.net/docs/build/html/api_http/put.html
 func InsertHandler(req *http.Request) error {
+	span := logger.TraceRequest(req)
+	defer span.End()
+
 	path := req.URL.Path
 	switch path {
 	case "/opentsdb/api/put", "/api/put":

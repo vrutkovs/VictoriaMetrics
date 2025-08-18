@@ -24,6 +24,8 @@ var (
 //
 // See https://github.com/VictoriaMetrics/VictoriaMetrics/issues/6
 func InsertHandler(req *http.Request) error {
+	span := logger.TraceRequest(req)
+	defer span.End()
 	extraLabels, err := protoparserutil.GetExtraLabels(req)
 	if err != nil {
 		return err

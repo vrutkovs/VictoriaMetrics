@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/bytesutil"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/prompb"
 
 	"github.com/valyala/fastjson"
@@ -173,6 +174,8 @@ const (
 )
 
 func parsePrometheusResponse(req *http.Request, resp *http.Response) (res Result, err error) {
+	span := logger.TraceRequest(req)
+	defer span.End()
 	r := &promResponse{}
 	if err = json.NewDecoder(resp.Body).Decode(r); err != nil {
 		return res, fmt.Errorf("error parsing response from %s: %w", req.URL.Redacted(), err)
@@ -223,6 +226,8 @@ func parsePrometheusResponse(req *http.Request, resp *http.Response) (res Result
 }
 
 func (c *Client) setPrometheusInstantReqParams(r *http.Request, query string, timestamp time.Time) {
+	span := logger.TraceRequest(r)
+	defer span.End()
 	if c.appendTypePrefix {
 		r.URL.Path += "/prometheus"
 	}
@@ -246,6 +251,8 @@ func (c *Client) setPrometheusInstantReqParams(r *http.Request, query string, ti
 }
 
 func (c *Client) setPrometheusRangeReqParams(r *http.Request, query string, start, end time.Time) {
+	span := logger.TraceRequest(r)
+	defer span.End()
 	if c.appendTypePrefix {
 		r.URL.Path += "/prometheus"
 	}

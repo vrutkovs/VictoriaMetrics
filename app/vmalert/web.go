@@ -62,6 +62,8 @@ var (
 )
 
 func (rh *requestHandler) handler(w http.ResponseWriter, r *http.Request) bool {
+	span := logger.TraceRequest(r)
+	defer span.End()
 	if strings.HasPrefix(r.URL.Path, "/vmalert/static") {
 		staticServer.ServeHTTP(w, r)
 		return true
@@ -210,6 +212,8 @@ func (rh *requestHandler) handler(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func (rh *requestHandler) getRule(r *http.Request) (apiRule, error) {
+	span := logger.TraceRequest(r)
+	defer span.End()
 	groupID, err := strconv.ParseUint(r.FormValue(paramGroupID), 10, 64)
 	if err != nil {
 		return apiRule{}, fmt.Errorf("failed to read %q param: %w", paramGroupID, err)
@@ -226,6 +230,8 @@ func (rh *requestHandler) getRule(r *http.Request) (apiRule, error) {
 }
 
 func (rh *requestHandler) getAlert(r *http.Request) (*apiAlert, error) {
+	span := logger.TraceRequest(r)
+	defer span.End()
 	groupID, err := strconv.ParseUint(r.FormValue(paramGroupID), 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %q param: %w", paramGroupID, err)
@@ -262,7 +268,6 @@ type rulesFilter struct {
 func newRulesFilter(r *http.Request) (*rulesFilter, error) {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	rf := &rulesFilter{}
 	query := r.URL.Query()

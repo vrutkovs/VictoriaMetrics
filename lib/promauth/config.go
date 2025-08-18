@@ -325,6 +325,9 @@ func (ac *Config) HeadersNoAuthString() string {
 
 // SetHeaders sets the configured ac headers to req.
 func (ac *Config) SetHeaders(req *http.Request, setAuthHeader bool) error {
+	span := logger.TraceRequest(req)
+	defer span.End()
+
 	if ac.tlsServerName != "" {
 		// It tlsServerName is set, then it is likely the request is performed via IP address instead of hostname.
 		// In this case users expect that the specified tlsServerName is used as a Host header in the request to https server.
@@ -487,6 +490,9 @@ type roundTripper struct {
 
 // RoundTrip implements http.RoundTripper interface.
 func (rt *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	span := logger.TraceRequest(req)
+	defer span.End()
+
 	tr, err := rt.getTransport()
 	if err != nil {
 		return nil, fmt.Errorf("cannot initialize Transport: %w", err)

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 )
 
 type graphiteResponse []graphiteResponseTarget
@@ -34,6 +36,8 @@ func (r graphiteResponse) metrics() []Metric {
 }
 
 func parseGraphiteResponse(req *http.Request, resp *http.Response) (Result, error) {
+	span := logger.TraceRequest(req)
+	defer span.End()
 	r := &graphiteResponse{}
 	if err := json.NewDecoder(resp.Body).Decode(r); err != nil {
 		return Result{}, fmt.Errorf("error parsing graphite metrics for %s: %w", req.URL.Redacted(), err)
@@ -47,6 +51,8 @@ const (
 )
 
 func (c *Client) setGraphiteReqParams(r *http.Request, query string) {
+	span := logger.TraceRequest(r)
+	defer span.End()
 	if c.appendTypePrefix {
 		r.URL.Path += graphitePrefix
 	}

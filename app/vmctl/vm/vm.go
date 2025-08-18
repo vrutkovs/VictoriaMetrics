@@ -116,7 +116,6 @@ func NewImporter(ctx context.Context, cfg Config) (*Importer, error) {
 	ctx, span := logger.Trace(ctx)
 	defer span.End()
 
-
 	if cfg.Concurrency < 1 {
 		return nil, fmt.Errorf("concurrency can't be lower than 1")
 	}
@@ -387,6 +386,8 @@ func (im *Importer) Import(tsBatch []*TimeSeries) error {
 var ErrBadRequest = errors.New("bad request")
 
 func (im *Importer) do(req *http.Request) error {
+	span := logger.TraceRequest(req)
+	defer span.End()
 	resp, err := im.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("unexpected error when performing request: %s", err)

@@ -6,6 +6,7 @@ import (
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vmagent/common"
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vmagent/remotewrite"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/auth"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/prompb"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/protoparser/opentsdbhttp"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/protoparser/opentsdbhttp/stream"
@@ -21,6 +22,8 @@ var (
 // InsertHandler processes HTTP OpenTSDB put requests.
 // See http://opentsdb.net/docs/build/html/api_http/put.html
 func InsertHandler(at *auth.Token, req *http.Request) error {
+	span := logger.TraceRequest(req)
+	defer span.End()
 	extraLabels, err := protoparserutil.GetExtraLabels(req)
 	if err != nil {
 		return err

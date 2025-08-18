@@ -152,6 +152,9 @@ func NewPrometheusClient(baseURL string, authCfg *promauth.Config, appendTypePre
 
 // Query executes the given query and returns parsed response
 func (c *Client) Query(ctx context.Context, query string, ts time.Time) (Result, *http.Request, error) {
+	ctx, span := logger.Trace(ctx)
+	defer span.End()
+
 	req, err := c.newQueryRequest(ctx, query, ts)
 	if err != nil {
 		return Result{}, nil, err
@@ -246,6 +249,8 @@ func (c *Client) QueryRange(ctx context.Context, query string, start, end time.T
 }
 
 func (c *Client) do(req *http.Request) (*http.Response, error) {
+	span := logger.TraceRequest(req)
+	defer span.End()
 	ru := req.URL.Redacted()
 	if *showDatasourceURL {
 		ru = req.URL.String()
@@ -319,6 +324,8 @@ func (c *Client) newRequest(ctx context.Context) (*http.Request, error) {
 
 // setReqParams adds query and other extra params for the request.
 func (c *Client) setReqParams(r *http.Request, query string) {
+	span := logger.TraceRequest(r)
+	defer span.End()
 	q := r.URL.Query()
 	for k, vs := range c.extraParams {
 		if q.Has(k) { // extraParams are prior to params in URL

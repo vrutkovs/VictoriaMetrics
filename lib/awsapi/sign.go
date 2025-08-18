@@ -35,6 +35,9 @@ func newSignedGetRequestWithTime(apiURL, service, region string, creds *credenti
 
 // signRequestWithTime - signs http request with AWS API credentials for given payload
 func signRequestWithTime(req *http.Request, service, region, payloadHash string, creds *credentials, t time.Time) error {
+	span := logger.TraceRequest(req)
+	defer span.End()
+
 	uri := req.URL
 	// Create canonicalRequest
 	amzdate := t.Format("20060102T150405Z")

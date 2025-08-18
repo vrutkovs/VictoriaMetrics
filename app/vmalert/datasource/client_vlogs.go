@@ -4,9 +4,13 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 )
 
 func (c *Client) setVLogsInstantReqParams(r *http.Request, query string, timestamp time.Time) {
+	span := logger.TraceRequest(r)
+	defer span.End()
 	// there is no type path prefix in victorialogs APIs right now, ignore appendTypePrefix.
 	if !*disablePathAppend {
 		r.URL.Path += "/select/logsql/stats_query"
@@ -25,6 +29,8 @@ func (c *Client) setVLogsInstantReqParams(r *http.Request, query string, timesta
 }
 
 func (c *Client) setVLogsRangeReqParams(r *http.Request, query string, start, end time.Time) {
+	span := logger.TraceRequest(r)
+	defer span.End()
 	// there is no type path prefix in victorialogs APIs right now, ignore appendTypePrefix.
 	if !*disablePathAppend {
 		r.URL.Path += "/select/logsql/stats_query_range"
@@ -41,6 +47,8 @@ func (c *Client) setVLogsRangeReqParams(r *http.Request, query string, start, en
 }
 
 func parseVLogsResponse(req *http.Request, resp *http.Response) (res Result, err error) {
+	span := logger.TraceRequest(req)
+	defer span.End()
 	res, err = parsePrometheusResponse(req, resp)
 	if err != nil {
 		return Result{}, err

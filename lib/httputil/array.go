@@ -3,11 +3,15 @@ package httputil
 import (
 	"net/http"
 	"strings"
+
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 )
 
 // GetArray returns an array of comma-separated values from r with the argKey quey arg or with headerKey header.
 func GetArray(r *http.Request, argKey, headerKey string) []string {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	v := GetRequestValue(r, argKey, headerKey)
 	if v == "" {
 		return nil
@@ -19,7 +23,6 @@ func GetArray(r *http.Request, argKey, headerKey string) []string {
 func GetRequestValue(r *http.Request, argKey, headerKey string) string {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	v := r.FormValue(argKey)
 	if v == "" {

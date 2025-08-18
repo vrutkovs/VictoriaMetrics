@@ -6,6 +6,7 @@ import (
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vminsert/common"
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vminsert/relabel"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/httpserver"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/prompb"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/promscrape"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/protoparser/prometheus"
@@ -21,6 +22,9 @@ var (
 
 // InsertHandler processes `/api/v1/import/prometheus` request.
 func InsertHandler(req *http.Request) error {
+	span := logger.TraceRequest(req)
+	defer span.End()
+
 	extraLabels, err := protoparserutil.GetExtraLabels(req)
 	if err != nil {
 		return err

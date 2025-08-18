@@ -80,7 +80,6 @@ func ExpandWithExprs(w http.ResponseWriter, r *http.Request) {
 	span := logger.TraceRequest(r)
 	defer span.End()
 
-
 	query := r.FormValue("query")
 	format := r.FormValue("format")
 	bw := bufferedwriter.Get(w)
@@ -99,7 +98,6 @@ func ExpandWithExprs(w http.ResponseWriter, r *http.Request) {
 func PrettifyQuery(w http.ResponseWriter, r *http.Request) {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	query := r.FormValue("query")
 	bw := bufferedwriter.Get(w)
@@ -120,7 +118,6 @@ func PrettifyQuery(w http.ResponseWriter, r *http.Request) {
 func FederateHandler(startTime time.Time, w http.ResponseWriter, r *http.Request) error {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	defer federateDuration.UpdateDuration(startTime)
 
@@ -171,7 +168,6 @@ var federateDuration = metrics.NewSummary(`vm_request_duration_seconds{path="/fe
 func ExportCSVHandler(startTime time.Time, w http.ResponseWriter, r *http.Request) error {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	defer exportCSVDuration.UpdateDuration(startTime)
 
@@ -263,7 +259,6 @@ func ExportNativeHandler(startTime time.Time, w http.ResponseWriter, r *http.Req
 	span := logger.TraceRequest(r)
 	defer span.End()
 
-
 	defer exportNativeDuration.UpdateDuration(startTime)
 
 	cp, err := getExportParams(r, startTime)
@@ -326,7 +321,6 @@ var bbPool bytesutil.ByteBufferPool
 func ExportHandler(startTime time.Time, w http.ResponseWriter, r *http.Request) error {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	defer exportDuration.UpdateDuration(startTime)
 
@@ -517,7 +511,6 @@ func DeleteHandler(startTime time.Time, r *http.Request) error {
 	span := logger.TraceRequest(r)
 	defer span.End()
 
-
 	defer deleteDuration.UpdateDuration(startTime)
 
 	cp, err := getCommonParams(r, startTime, true)
@@ -548,7 +541,6 @@ var deleteDuration = metrics.NewSummary(`vm_request_duration_seconds{path="/api/
 func LabelValuesHandler(qt *querytracer.Tracer, startTime time.Time, labelName string, w http.ResponseWriter, r *http.Request) error {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	defer labelValuesDuration.UpdateDuration(startTime)
 
@@ -588,7 +580,6 @@ const secsPerDay = 3600 * 24
 func TSDBStatusHandler(qt *querytracer.Tracer, startTime time.Time, w http.ResponseWriter, r *http.Request) error {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	defer tsdbStatusDuration.UpdateDuration(startTime)
 
@@ -654,7 +645,6 @@ func LabelsHandler(qt *querytracer.Tracer, startTime time.Time, w http.ResponseW
 	span := logger.TraceRequest(r)
 	defer span.End()
 
-
 	defer labelsDuration.UpdateDuration(startTime)
 
 	cp, err := getCommonParamsForLabelsAPI(r, startTime, false)
@@ -688,7 +678,6 @@ func SeriesCountHandler(startTime time.Time, w http.ResponseWriter, r *http.Requ
 	span := logger.TraceRequest(r)
 	defer span.End()
 
-
 	defer seriesCountDuration.UpdateDuration(startTime)
 
 	deadline := searchutil.GetDeadlineForStatusRequest(r, startTime)
@@ -714,7 +703,6 @@ var seriesCountDuration = metrics.NewSummary(`vm_request_duration_seconds{path="
 func SeriesHandler(qt *querytracer.Tracer, startTime time.Time, w http.ResponseWriter, r *http.Request) error {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	defer seriesDuration.UpdateDuration(startTime)
 
@@ -758,7 +746,6 @@ var seriesDuration = metrics.NewSummary(`vm_request_duration_seconds{path="/api/
 func QueryHandler(qt *querytracer.Tracer, startTime time.Time, w http.ResponseWriter, r *http.Request) error {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	defer queryDuration.UpdateDuration(startTime)
 
@@ -920,7 +907,6 @@ func QueryRangeHandler(qt *querytracer.Tracer, startTime time.Time, w http.Respo
 	span := logger.TraceRequest(r)
 	defer span.End()
 
-
 	defer queryRangeDuration.UpdateDuration(startTime)
 
 	ct := startTime.UnixNano() / 1e6
@@ -952,6 +938,8 @@ func QueryRangeHandler(qt *querytracer.Tracer, startTime time.Time, w http.Respo
 
 func queryRangeHandler(qt *querytracer.Tracer, startTime time.Time, w http.ResponseWriter, query string,
 	start, end, step int64, r *http.Request, ct int64, etfs [][]storage.TagFilter) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
 	deadline := searchutil.GetDeadlineForQuery(r, startTime)
 	mayCache := !httputil.GetBool(r, "nocache")
 	lookbackDelta, err := getMaxLookback(r)
@@ -1104,7 +1092,6 @@ func getMaxLookback(r *http.Request) (int64, error) {
 	span := logger.TraceRequest(r)
 	defer span.End()
 
-
 	d := maxLookback.Milliseconds()
 	if d == 0 {
 		d = maxStalenessInterval.Milliseconds()
@@ -1140,7 +1127,6 @@ func getRoundDigits(r *http.Request) int {
 	span := logger.TraceRequest(r)
 	defer span.End()
 
-
 	s := r.FormValue("round_digits")
 	if len(s) == 0 {
 		return 100
@@ -1156,7 +1142,6 @@ func getLatencyOffsetMilliseconds(r *http.Request) (int64, error) {
 	span := logger.TraceRequest(r)
 	defer span.End()
 
-
 	d := latencyOffset.Milliseconds()
 	if d < 0 {
 		// Zero latency offset may be useful for some use cases.
@@ -1170,7 +1155,6 @@ func getLatencyOffsetMilliseconds(r *http.Request) (int64, error) {
 func QueryStatsHandler(w http.ResponseWriter, r *http.Request) error {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	topN := 20
 	topNStr := r.FormValue("topN")
@@ -1220,6 +1204,8 @@ func (cp *commonParams) IsDefaultTimeRange() bool {
 // - extra_label
 // - extra_filters[]
 func getExportParams(r *http.Request, startTime time.Time) (*commonParams, error) {
+	span := logger.TraceRequest(r)
+	defer span.End()
 	cp, err := getCommonParams(r, startTime, true)
 	if err != nil {
 		return nil, err
@@ -1231,7 +1217,6 @@ func getExportParams(r *http.Request, startTime time.Time) (*commonParams, error
 func getCommonParamsForLabelsAPI(r *http.Request, startTime time.Time, requireNonEmptyMatch bool) (*commonParams, error) {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	cp, err := getCommonParamsInternal(r, startTime, requireNonEmptyMatch, true)
 	if err != nil {
@@ -1253,13 +1238,14 @@ func getCommonParamsForLabelsAPI(r *http.Request, startTime time.Time, requireNo
 // - extra_label
 // - extra_filters[]
 func getCommonParams(r *http.Request, startTime time.Time, requireNonEmptyMatch bool) (*commonParams, error) {
+	span := logger.TraceRequest(r)
+	defer span.End()
 	return getCommonParamsInternal(r, startTime, requireNonEmptyMatch, false)
 }
 
 func getCommonParamsInternal(r *http.Request, startTime time.Time, requireNonEmptyMatch, isLabelsAPI bool) (*commonParams, error) {
 	span := logger.TraceRequest(r)
 	defer span.End()
-
 
 	deadline := searchutil.GetDeadlineForQuery(r, startTime)
 	start, err := httputil.GetTime(r, "start", 0)

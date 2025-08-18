@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/bytesutil"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/protoparser/csvimport"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/protoparser/protoparserutil"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/writeconcurrencylimiter"
@@ -27,6 +28,9 @@ var (
 //
 // callback shouldn't hold rows after returning.
 func Parse(req *http.Request, callback func(rows []csvimport.Row) error) error {
+	span := logger.TraceRequest(req)
+	defer span.End()
+
 	q := req.URL.Query()
 	format := q.Get("format")
 	cds, err := csvimport.ParseColumnDescriptors(format)
