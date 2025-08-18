@@ -393,7 +393,15 @@ func TraceRequest(r *http.Request, opts ...trace.SpanStartOption) trace.Span {
 		attribute.String("user-agent", r.UserAgent()),
 		attribute.String("remote-addr", r.RemoteAddr),
 	))
-	ctx, span := tracer.Start(r.Context(), funcName, opts...)
-	r = r.WithContext(ctx)
+	for k, values := range r.Header {
+		key := fmt.Sprintf("header-%s", k)
+		for _, v := range values {
+			opts = append(opts, trace.WithAttributes(attribute.String(key, v)))
+		}
+	}
+	ctx := otel.GetTextMapPropagator().Extract(r.Context(), propagation.HeaderCarrier(r.Header))
+	ctx, span := tracer.Start(ctx, funcName, opts...)
+	otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(r.Header))
+	r.WithContext(ctx)
 	return span
 }
