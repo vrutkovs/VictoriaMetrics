@@ -399,9 +399,31 @@ func TraceRequest(r *http.Request, opts ...trace.SpanStartOption) trace.Span {
 			opts = append(opts, trace.WithAttributes(attribute.String(key, v)))
 		}
 	}
-	ctx := otel.GetTextMapPropagator().Extract(r.Context(), propagation.HeaderCarrier(r.Header))
+	ctx := GetCtxFromRequest(r)
 	ctx, span := tracer.Start(ctx, funcName, opts...)
 	otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(r.Header))
 	r.WithContext(ctx)
 	return span
+}
+
+func GetCtxFromRequest(r *http.Request) context.Context {
+	return otel.GetTextMapPropagator().Extract(r.Context(), propagation.HeaderCarrier(r.Header))
+}
+
+func ChildSpan(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
+	tracer := otel.GetTracerProvider().Tracer("victoriametrics")
+
+	pc, _, _, _ := runtime.Caller(1)
+	runtimeFunc := runtime.FuncForPC(pc)
+	file, line := runtimeFunc.FileLine(pc)
+
+	opts = append(opts, trace.WithAttributes(
+		attribute.String("location", fmt.Sprintf("%s:%d", file, line)),
+	))
+
+	funcName := runtimeFunc.Name()
+	if len(name) > 0 {
+		funcName = name
+	}
+	return tracer.Start(ctx, funcName, opts...)
 }

@@ -1,6 +1,7 @@
 package promremotewrite
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vminsert/common"
@@ -26,12 +27,16 @@ func InsertHandler(req *http.Request) error {
 		return err
 	}
 	isVMRemoteWrite := req.Header.Get("Content-Encoding") == "zstd"
-	return stream.Parse(req.Body, isVMRemoteWrite, func(tss []prompb.TimeSeries, _ []prompb.MetricMetadata) error {
-		return insertRows(tss, extraLabels)
+	ctx := logger.GetCtxFromRequest(req)
+	return stream.Parse(ctx, req.Body, isVMRemoteWrite, func(tss []prompb.TimeSeries, _ []prompb.MetricMetadata) error {
+		return insertRows(ctx, tss, extraLabels)
 	})
 }
 
-func insertRows(timeseries []prompb.TimeSeries, extraLabels []prompb.Label) error {
+func insertRows(spanCtx context.Context, timeseries []prompb.TimeSeries, extraLabels []prompb.Label) error {
+	_, span := logger.Trace(spanCtx)
+	defer span.End()
+
 	ctx := common.GetInsertCtx()
 	defer common.PutInsertCtx(ctx)
 
@@ -63,13 +68,22 @@ func insertRows(timeseries []prompb.TimeSeries, extraLabels []prompb.Label) erro
 		samples := ts.Samples
 		for i := range samples {
 			r := &samples[i]
+
+			_, subspan := logger.ChildSpan(spanCtx, "promremotewrite.WriteDataPointExt")
 			metricNameRaw, err = ctx.WriteDataPointExt(metricNameRaw, ctx.Labels, r.Timestamp, r.Value)
 			if err != nil {
+				subspan.RecordError(err)
+				subspan.End()
 				return err
 			}
+			subspan.End()
 		}
 	}
 	rowsInserted.Add(rowsTotal)
 	rowsPerInsert.Update(float64(rowsTotal))
-	return ctx.FlushBufs()
+
+	_, subspan := logger.ChildSpan(spanCtx, "promremotewrite.FlushBufs")
+	res := ctx.FlushBufs()
+	subspan.End()
+	return res
 }

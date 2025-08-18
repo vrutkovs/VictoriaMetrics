@@ -2,6 +2,7 @@ package stream
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"sync"
@@ -10,10 +11,12 @@ import (
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/encoding/zstd"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/fasttime"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/flagutil"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/prompb"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/writeconcurrencylimiter"
 	"github.com/VictoriaMetrics/metrics"
 	"github.com/golang/snappy"
+	"go.opentelemetry.io/otel"
 )
 
 var maxInsertRequestSize = flagutil.NewBytes("maxInsertRequestSize", 32*1024*1024, "The maximum size in bytes of a single Prometheus remote_write API request")
@@ -21,7 +24,11 @@ var maxInsertRequestSize = flagutil.NewBytes("maxInsertRequestSize", 32*1024*102
 // Parse parses Prometheus remote_write message from reader and calls callback for the parsed timeseries.
 //
 // callback shouldn't hold tss after returning.
-func Parse(r io.Reader, isVMRemoteWrite bool, callback func(tss []prompb.TimeSeries, mms []prompb.MetricMetadata) error) error {
+func Parse(spanCtx context.Context, r io.Reader, isVMRemoteWrite bool, callback func(tss []prompb.TimeSeries, mms []prompb.MetricMetadata) error) error {
+	tracer := otel.GetTracerProvider().Tracer("victoriametrics")
+	spanCtx, span := logger.Trace(spanCtx)
+	defer span.End()
+
 	wcr := writeconcurrencylimiter.GetReader(r)
 	defer writeconcurrencylimiter.PutReader(wcr)
 	r = wcr
@@ -39,6 +46,8 @@ func Parse(r io.Reader, isVMRemoteWrite bool, callback func(tss []prompb.TimeSer
 	defer bodyBufferPool.Put(bb)
 	var err error
 	if isVMRemoteWrite {
+		_, subSpan := tracer.Start(spanCtx, "remotewrite")
+
 		bb.B, err = zstd.Decompress(bb.B[:0], ctx.reqBuf.B)
 		if err != nil {
 			// Fall back to Snappy decompression, since vmagent may send snappy-encoded messages
@@ -54,7 +63,9 @@ func Parse(r io.Reader, isVMRemoteWrite bool, callback func(tss []prompb.TimeSer
 				return fmt.Errorf("cannot decompress zstd-encoded request with length %d: %w", len(ctx.reqBuf.B), zstdErr)
 			}
 		}
+		subSpan.End()
 	} else {
+		_, subSpan := tracer.Start(spanCtx, "prom remotewrite")
 		bb.B, err = snappy.Decode(bb.B[:cap(bb.B)], ctx.reqBuf.B)
 		if err != nil {
 			// Fall back to zstd decompression, since vmagent may send zstd-encoded messages
@@ -70,6 +81,7 @@ func Parse(r io.Reader, isVMRemoteWrite bool, callback func(tss []prompb.TimeSer
 				return fmt.Errorf("cannot decompress snappy-encoded request with length %d: %w", len(ctx.reqBuf.B), snappyErr)
 			}
 		}
+		subSpan.End()
 	}
 	if int64(len(bb.B)) > maxInsertRequestSize.N {
 		return fmt.Errorf("too big unpacked request; mustn't exceed `-maxInsertRequestSize=%d` bytes; got %d bytes", maxInsertRequestSize.N, len(bb.B))
