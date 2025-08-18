@@ -99,6 +99,10 @@ var vmuiFileServer = http.FileServer(http.FS(vmuiFiles))
 
 // RequestHandler handles remote read API requests
 func RequestHandler(w http.ResponseWriter, r *http.Request) bool {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	path := strings.ReplaceAll(r.URL.Path, "//", "/")
 
 	// Strip /prometheus and /graphite prefixes in order to provide path compatibility with cluster version
@@ -429,6 +433,10 @@ func RequestHandler(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func handleStaticAndSimpleRequests(w http.ResponseWriter, r *http.Request, path string) bool {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	// vmui access.
 	if path == "/vmui" || path == "/graph" {
 		// VMUI access via incomplete url without `/` in the end. Redirect to complete url.
@@ -717,6 +725,10 @@ var (
 )
 
 func proxyVMAlertRequests(w http.ResponseWriter, r *http.Request) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	defer func() {
 		err := recover()
 		if err == nil || err == http.ErrAbortHandler {

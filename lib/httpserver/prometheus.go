@@ -3,12 +3,17 @@ package httpserver
 import (
 	"errors"
 	"net/http"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 )
 
 // SendPrometheusError sends err to w in Prometheus querying API response format.
 //
 // See https://prometheus.io/docs/prometheus/latest/querying/api/#format-overview for more details
 func SendPrometheusError(w http.ResponseWriter, r *http.Request, err error) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	errStr := err.Error()
 	logHTTPError(r, errStr)
 

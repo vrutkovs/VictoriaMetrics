@@ -305,6 +305,10 @@ func Stop() {
 
 // RequestHandler is a storage request handler.
 func RequestHandler(w http.ResponseWriter, r *http.Request) bool {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	path := r.URL.Path
 	if path == "/internal/force_merge" {
 		if !httpserver.CheckAuthFlag(w, r, forceMergeAuthKey) {

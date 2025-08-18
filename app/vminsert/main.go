@@ -36,6 +36,7 @@ import (
 	influxserver "github.com/VictoriaMetrics/VictoriaMetrics/lib/ingestserver/influx"
 	opentsdbserver "github.com/VictoriaMetrics/VictoriaMetrics/lib/ingestserver/opentsdb"
 	opentsdbhttpserver "github.com/VictoriaMetrics/VictoriaMetrics/lib/ingestserver/opentsdbhttp"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/procutil"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/prompb"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/promscrape"
@@ -128,6 +129,9 @@ func Stop() {
 
 // RequestHandler is a handler for Prometheus remote storage write API
 func RequestHandler(w http.ResponseWriter, r *http.Request) bool {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	startTime := time.Now()
 	defer requestDuration.UpdateDuration(startTime)
 

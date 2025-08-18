@@ -3,6 +3,7 @@ package protoparserutil
 import (
 	"io"
 	"net/http"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 )
 
 // HandleVMProtoServerHandshake returns true if r contains handshake request for determining the supported protocol version.
@@ -11,6 +12,10 @@ import (
 // remote write protocol by default.
 // See: https://github.com/VictoriaMetrics/VictoriaMetrics/pull/8462
 func HandleVMProtoServerHandshake(w http.ResponseWriter, r *http.Request) bool {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	q := r.URL.Query()
 	if q.Get("get_vm_proto_version") != "" {
 		_, _ = io.WriteString(w, "1")

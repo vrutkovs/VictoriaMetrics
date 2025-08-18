@@ -238,6 +238,10 @@ func getAuthTokenFromPath(path string) (*auth.Token, error) {
 }
 
 func requestHandler(w http.ResponseWriter, r *http.Request) bool {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	if r.URL.Path == "/" {
 		if r.Method != http.MethodGet {
 			return false
@@ -508,6 +512,10 @@ func requestHandler(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func processMultitenantRequest(w http.ResponseWriter, r *http.Request, path string) bool {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	p, err := httpserver.ParsePath(path)
 	if err != nil {
 		// Cannot parse multitenant path. Skip it - probably it will be parsed later.

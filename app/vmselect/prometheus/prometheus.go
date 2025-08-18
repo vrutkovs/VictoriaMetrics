@@ -77,6 +77,10 @@ const defaultStep = 5 * 60 * 1000
 
 // ExpandWithExprs handles the request to /expand-with-exprs
 func ExpandWithExprs(w http.ResponseWriter, r *http.Request) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	query := r.FormValue("query")
 	format := r.FormValue("format")
 	bw := bufferedwriter.Get(w)
@@ -93,6 +97,10 @@ func ExpandWithExprs(w http.ResponseWriter, r *http.Request) {
 
 // PrettifyQuery handles the request /prettify-query
 func PrettifyQuery(w http.ResponseWriter, r *http.Request) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	query := r.FormValue("query")
 	bw := bufferedwriter.Get(w)
 	defer bufferedwriter.Put(bw)
@@ -110,6 +118,10 @@ func PrettifyQuery(w http.ResponseWriter, r *http.Request) {
 
 // FederateHandler implements /federate . See https://prometheus.io/docs/prometheus/latest/federation/
 func FederateHandler(startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	defer federateDuration.UpdateDuration(startTime)
 
 	cp, err := getCommonParams(r, startTime, true)
@@ -157,6 +169,10 @@ var federateDuration = metrics.NewSummary(`vm_request_duration_seconds{path="/fe
 
 // ExportCSVHandler exports data in CSV format from /api/v1/export/csv
 func ExportCSVHandler(startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	defer exportCSVDuration.UpdateDuration(startTime)
 
 	cp, err := getExportParams(r, startTime)
@@ -244,6 +260,10 @@ var exportCSVDuration = metrics.NewSummary(`vm_request_duration_seconds{path="/a
 
 // ExportNativeHandler exports data in native format from /api/v1/export/native.
 func ExportNativeHandler(startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	defer exportNativeDuration.UpdateDuration(startTime)
 
 	cp, err := getExportParams(r, startTime)
@@ -304,6 +324,10 @@ var bbPool bytesutil.ByteBufferPool
 
 // ExportHandler exports data in raw format from /api/v1/export.
 func ExportHandler(startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	defer exportDuration.UpdateDuration(startTime)
 
 	cp, err := getExportParams(r, startTime)
@@ -490,6 +514,10 @@ var exportBlockPool = &sync.Pool{
 //
 // See https://prometheus.io/docs/prometheus/latest/querying/api/#delete-series
 func DeleteHandler(startTime time.Time, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	defer deleteDuration.UpdateDuration(startTime)
 
 	cp, err := getCommonParams(r, startTime, true)
@@ -518,6 +546,10 @@ var deleteDuration = metrics.NewSummary(`vm_request_duration_seconds{path="/api/
 //
 // See https://prometheus.io/docs/prometheus/latest/querying/api/#querying-label-values
 func LabelValuesHandler(qt *querytracer.Tracer, startTime time.Time, labelName string, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	defer labelValuesDuration.UpdateDuration(startTime)
 
 	cp, err := getCommonParamsForLabelsAPI(r, startTime, false)
@@ -554,6 +586,10 @@ const secsPerDay = 3600 * 24
 //
 // It can accept `match[]` filters in order to narrow down the search.
 func TSDBStatusHandler(qt *querytracer.Tracer, startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	defer tsdbStatusDuration.UpdateDuration(startTime)
 
 	cp, err := getCommonParams(r, startTime, false)
@@ -615,6 +651,10 @@ var tsdbStatusDuration = metrics.NewSummary(`vm_request_duration_seconds{path="/
 //
 // See https://prometheus.io/docs/prometheus/latest/querying/api/#getting-label-names
 func LabelsHandler(qt *querytracer.Tracer, startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	defer labelsDuration.UpdateDuration(startTime)
 
 	cp, err := getCommonParamsForLabelsAPI(r, startTime, false)
@@ -645,6 +685,10 @@ var labelsDuration = metrics.NewSummary(`vm_request_duration_seconds{path="/api/
 
 // SeriesCountHandler processes /api/v1/series/count request.
 func SeriesCountHandler(startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	defer seriesCountDuration.UpdateDuration(startTime)
 
 	deadline := searchutil.GetDeadlineForStatusRequest(r, startTime)
@@ -668,6 +712,10 @@ var seriesCountDuration = metrics.NewSummary(`vm_request_duration_seconds{path="
 //
 // See https://prometheus.io/docs/prometheus/latest/querying/api/#finding-series-by-label-matchers
 func SeriesHandler(qt *querytracer.Tracer, startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	defer seriesDuration.UpdateDuration(startTime)
 
 	// Do not set start to httputil.minTimeMsecs by default as Prometheus does,
@@ -708,6 +756,10 @@ var seriesDuration = metrics.NewSummary(`vm_request_duration_seconds{path="/api/
 //
 // See https://prometheus.io/docs/prometheus/latest/querying/api/#instant-queries
 func QueryHandler(qt *querytracer.Tracer, startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	defer queryDuration.UpdateDuration(startTime)
 
 	ct := startTime.UnixNano() / 1e6
@@ -865,6 +917,10 @@ var queryDuration = metrics.NewSummary(`vm_request_duration_seconds{path="/api/v
 //
 // See https://prometheus.io/docs/prometheus/latest/querying/api/#range-queries
 func QueryRangeHandler(qt *querytracer.Tracer, startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	defer queryRangeDuration.UpdateDuration(startTime)
 
 	ct := startTime.UnixNano() / 1e6
@@ -1045,6 +1101,10 @@ func adjustLastPoints(tss []netstorage.Result, start, end int64) []netstorage.Re
 }
 
 func getMaxLookback(r *http.Request) (int64, error) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	d := maxLookback.Milliseconds()
 	if d == 0 {
 		d = maxStalenessInterval.Milliseconds()
@@ -1077,6 +1137,10 @@ func getTagFilterssFromMatches(matches []string) ([][]storage.TagFilter, error) 
 }
 
 func getRoundDigits(r *http.Request) int {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	s := r.FormValue("round_digits")
 	if len(s) == 0 {
 		return 100
@@ -1089,6 +1153,10 @@ func getRoundDigits(r *http.Request) int {
 }
 
 func getLatencyOffsetMilliseconds(r *http.Request) (int64, error) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	d := latencyOffset.Milliseconds()
 	if d < 0 {
 		// Zero latency offset may be useful for some use cases.
@@ -1100,6 +1168,10 @@ func getLatencyOffsetMilliseconds(r *http.Request) (int64, error) {
 
 // QueryStatsHandler returns query stats at `/api/v1/status/top_queries`
 func QueryStatsHandler(w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	topN := 20
 	topNStr := r.FormValue("topN")
 	if len(topNStr) > 0 {
@@ -1157,6 +1229,10 @@ func getExportParams(r *http.Request, startTime time.Time) (*commonParams, error
 }
 
 func getCommonParamsForLabelsAPI(r *http.Request, startTime time.Time, requireNonEmptyMatch bool) (*commonParams, error) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	cp, err := getCommonParamsInternal(r, startTime, requireNonEmptyMatch, true)
 	if err != nil {
 		return nil, err
@@ -1181,6 +1257,10 @@ func getCommonParams(r *http.Request, startTime time.Time, requireNonEmptyMatch 
 }
 
 func getCommonParamsInternal(r *http.Request, startTime time.Time, requireNonEmptyMatch, isLabelsAPI bool) (*commonParams, error) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	deadline := searchutil.GetDeadlineForQuery(r, startTime)
 	start, err := httputil.GetTime(r, "start", 0)
 	if err != nil {

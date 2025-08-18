@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
 	"github.com/prometheus/prometheus/model/labels"
@@ -232,6 +233,9 @@ func (rrs *RemoteReadServer) getStreamReadHandler(t *testing.T) http.Handler {
 }
 
 func validateReadHeaders(t *testing.T, r *http.Request) bool {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	if r.Method != http.MethodPost {
 		t.Fatalf("got %q method, expected %q", r.Method, http.MethodPost)
 	}
@@ -254,6 +258,9 @@ func validateReadHeaders(t *testing.T, r *http.Request) bool {
 }
 
 func validateStreamReadHeaders(t *testing.T, r *http.Request) bool {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	if r.Method != http.MethodPost {
 		t.Fatalf("got %q method, expected %q", r.Method, http.MethodPost)
 	}

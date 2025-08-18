@@ -9,6 +9,7 @@ import (
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/fasttime"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/httputil"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/storage"
 	"github.com/VictoriaMetrics/metricsql"
 )
@@ -24,6 +25,9 @@ var (
 
 // GetMaxQueryDuration returns the maximum duration for query from r.
 func GetMaxQueryDuration(r *http.Request) time.Duration {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	dms, err := httputil.GetDuration(r, "timeout", 0)
 	if err != nil {
 		dms = 0
@@ -43,6 +47,9 @@ func GetDeadlineForQuery(r *http.Request, startTime time.Time) Deadline {
 
 // GetDeadlineForStatusRequest returns deadline for the given request to /api/v1/status/*.
 func GetDeadlineForStatusRequest(r *http.Request, startTime time.Time) Deadline {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	dMax := maxStatusRequestDuration.Milliseconds()
 	return getDeadlineWithMaxDuration(r, startTime, dMax, "-search.maxStatusRequestDuration")
 }
@@ -55,6 +62,9 @@ func GetDeadlineForExport(r *http.Request, startTime time.Time) Deadline {
 
 // GetDeadlineForLabelsAPI returns deadline for the given request to /api/v1/labels, /api/v1/label/.../values or /api/v1/series
 func GetDeadlineForLabelsAPI(r *http.Request, startTime time.Time) Deadline {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	dMax := maxLabelsAPIDuration.Milliseconds()
 	return getDeadlineWithMaxDuration(r, startTime, dMax, "-search.maxLabelsAPIDuration")
 }
@@ -66,6 +76,9 @@ func GetDeadlineForDelete(r *http.Request, startTime time.Time) Deadline {
 }
 
 func getDeadlineWithMaxDuration(r *http.Request, startTime time.Time, dMax int64, flagHint string) Deadline {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	d, err := httputil.GetDuration(r, "timeout", 0)
 	if err != nil {
 		d = 0
@@ -130,6 +143,9 @@ func (d *Deadline) String() string {
 //	{env="prod",team="devops",t1="v1",t2="v2"}
 //	{env=~"dev|staging",team!="devops",t1="v1",t2="v2"}
 func GetExtraTagFilters(r *http.Request) ([][]storage.TagFilter, error) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	var tagFilters []storage.TagFilter
 	for _, match := range r.Form["extra_label"] {
 		tmp := strings.SplitN(match, "=", 2)

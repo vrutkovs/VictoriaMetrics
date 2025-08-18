@@ -988,6 +988,10 @@ func getHTTPAuthBasicToken(username, password string) string {
 var defaultHeaderNames = []string{"Authorization"}
 
 func getAuthTokensFromRequest(r *http.Request) []string {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	var ats []string
 
 	// Obtain possible auth tokens from one of the allowed auth headers

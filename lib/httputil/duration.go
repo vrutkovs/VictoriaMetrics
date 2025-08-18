@@ -6,10 +6,15 @@ import (
 	"strconv"
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/timeutil"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 )
 
 // GetDuration returns duration in milliseconds from the given argKey query arg.
 func GetDuration(r *http.Request, argKey string, defaultValue int64) (int64, error) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	argValue := r.FormValue(argKey)
 	if len(argValue) == 0 {
 		return defaultValue, nil

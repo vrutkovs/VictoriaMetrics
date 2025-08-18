@@ -4,10 +4,15 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 )
 
 // GetInt returns integer value from the given argKey.
 func GetInt(r *http.Request, argKey string) (int, error) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	argValue := r.FormValue(argKey)
 	if len(argValue) == 0 {
 		return 0, nil

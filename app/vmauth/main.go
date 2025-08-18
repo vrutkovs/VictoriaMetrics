@@ -130,6 +130,10 @@ func main() {
 }
 
 func internalRequestHandler(w http.ResponseWriter, r *http.Request) bool {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	switch r.URL.Path {
 	case "/-/reload":
 		if !httpserver.CheckAuthFlag(w, r, reloadAuthKey) {
@@ -151,6 +155,10 @@ func requestHandlerWithInternalRoutes(w http.ResponseWriter, r *http.Request) bo
 }
 
 func requestHandler(w http.ResponseWriter, r *http.Request) bool {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 
 	ats := getAuthTokensFromRequest(r)
 	if len(ats) == 0 {
@@ -203,6 +211,10 @@ func getUserInfoByAuthTokens(ats []string) *UserInfo {
 }
 
 func processUserRequest(w http.ResponseWriter, r *http.Request, ui *UserInfo) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	startTime := time.Now()
 	defer ui.requestsDuration.UpdateDuration(startTime)
 
@@ -229,6 +241,10 @@ func processUserRequest(w http.ResponseWriter, r *http.Request, ui *UserInfo) {
 }
 
 func processRequest(w http.ResponseWriter, r *http.Request, ui *UserInfo) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	u := normalizeURL(r.URL)
 	up, hc := ui.getURLPrefixAndHeaders(u, r.Host, r.Header)
 	isDefault := false
@@ -295,6 +311,10 @@ func processRequest(w http.ResponseWriter, r *http.Request, ui *UserInfo) {
 }
 
 func tryProcessingRequest(w http.ResponseWriter, r *http.Request, targetURL *url.URL, hc HeadersConf, retryStatusCodes []int, ui *UserInfo) (bool, bool) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	req := sanitizeRequestHeaders(r)
 
 	req.URL = targetURL
@@ -416,6 +436,10 @@ func updateHeadersByConfig(dst http.Header, src []*Header) {
 }
 
 func sanitizeRequestHeaders(r *http.Request) *http.Request {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	// This code has been copied from net/http/httputil/reverseproxy.go
 	req := r.Clone(r.Context())
 	removeHopHeaders(req.Header)
@@ -555,6 +579,10 @@ func handleMissingAuthorizationError(w http.ResponseWriter) {
 }
 
 func handleConcurrencyLimitError(w http.ResponseWriter, r *http.Request, err error) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	w.Header().Add("Retry-After", "10")
 	err = &httpserver.ErrorWithStatusCode{
 		Err:        err,
@@ -680,6 +708,10 @@ func (rtb *readTrackingBody) Close() error {
 }
 
 func debugInfo(u *url.URL, r *http.Request) string {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	s := &strings.Builder{}
 	fmt.Fprintf(s, " (host: %q; ", r.Host)
 	fmt.Fprintf(s, "path: %q; ", u.Path)

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/timeutil"
 )
 
@@ -15,6 +16,9 @@ import (
 // The rounding is needed in order to align query results in Grafana
 // executed at different times. See https://github.com/VictoriaMetrics/VictoriaMetrics/issues/720
 func GetTime(r *http.Request, argKey string, defaultMs int64) (int64, error) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	argValue := r.FormValue(argKey)
 	if len(argValue) == 0 {
 		return roundToSeconds(defaultMs), nil

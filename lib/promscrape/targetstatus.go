@@ -32,6 +32,10 @@ var tsmGlobal = newTargetStatusMap()
 //
 // It fetches response for the given target id and returns it.
 func WriteTargetResponse(w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	targetID := r.FormValue("id")
 	sw := tsmGlobal.getScrapeWorkByTargetID(targetID)
 	if sw == nil {
@@ -48,6 +52,10 @@ func WriteTargetResponse(w http.ResponseWriter, r *http.Request) error {
 
 // WriteHumanReadableTargetsStatus writes human-readable status for all the scrape targets to w according to r.
 func WriteHumanReadableTargetsStatus(w http.ResponseWriter, r *http.Request) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	filter := getRequestFilter(r)
 	tsr := tsmGlobal.getTargetsStatusByJob(filter)
 	if accept := r.Header.Get("Accept"); strings.Contains(accept, "text/html") {
@@ -61,6 +69,10 @@ func WriteHumanReadableTargetsStatus(w http.ResponseWriter, r *http.Request) {
 
 // WriteServiceDiscovery writes /service-discovery response to w similar to http://demo.robustperception.io:9090/service-discovery
 func WriteServiceDiscovery(w http.ResponseWriter, r *http.Request) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	filter := getRequestFilter(r)
 	tsr := tsmGlobal.getTargetsStatusByJob(filter)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -609,6 +621,10 @@ type requestFilter struct {
 }
 
 func getRequestFilter(r *http.Request) *requestFilter {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	showOriginalLabels, _ := strconv.ParseBool(r.FormValue("show_original_labels"))
 	showOnlyUnhealthy, _ := strconv.ParseBool(r.FormValue("show_only_unhealthy"))
 	endpointSearch := strings.TrimSpace(r.FormValue("endpoint_search"))

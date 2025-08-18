@@ -6,10 +6,15 @@ import (
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/httpserver"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/promrelabel"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 )
 
 // WriteMetricRelabelDebug serves requests to /metric-relabel-debug page
 func WriteMetricRelabelDebug(w http.ResponseWriter, r *http.Request) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	targetID := r.FormValue("id")
 	metric := r.FormValue("metric")
 	relabelConfigs := r.FormValue("relabel_configs")
@@ -35,6 +40,10 @@ func WriteMetricRelabelDebug(w http.ResponseWriter, r *http.Request) {
 
 // WriteTargetRelabelDebug generates response for /target-relabel-debug page
 func WriteTargetRelabelDebug(w http.ResponseWriter, r *http.Request) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	targetID := r.FormValue("id")
 	metric := r.FormValue("metric")
 	relabelConfigs := r.FormValue("relabel_configs")

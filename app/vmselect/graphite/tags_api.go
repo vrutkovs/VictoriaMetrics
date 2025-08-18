@@ -14,6 +14,7 @@ import (
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vmstorage"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/bufferedwriter"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/httputil"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/prompb"
 	graphiteparser "github.com/VictoriaMetrics/VictoriaMetrics/lib/protoparser/graphite"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/storage"
@@ -31,6 +32,9 @@ var (
 //
 // See https://graphite.readthedocs.io/en/stable/tags.html#removing-series-from-the-tagdb
 func TagsDelSeriesHandler(startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	deadline := searchutil.GetDeadlineForQuery(r, startTime)
 	paths := r.Form["path"]
 	totalDeleted := 0
@@ -80,6 +84,9 @@ func TagsDelSeriesHandler(startTime time.Time, w http.ResponseWriter, r *http.Re
 //
 // See https://graphite.readthedocs.io/en/stable/tags.html#adding-series-to-the-tagdb
 func TagsTagSeriesHandler(startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	return registerMetrics(startTime, w, r, false)
 }
 
@@ -91,6 +98,9 @@ func TagsTagMultiSeriesHandler(startTime time.Time, w http.ResponseWriter, r *ht
 }
 
 func registerMetrics(startTime time.Time, w http.ResponseWriter, r *http.Request, isJSONResponse bool) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	deadline := searchutil.GetDeadlineForQuery(r, startTime)
 	_ = deadline // TODO: use the deadline as in the cluster branch
 	paths := r.Form["path"]
@@ -164,6 +174,9 @@ var (
 //
 // See https://graphite.readthedocs.io/en/stable/tags.html#auto-complete-support
 func TagsAutoCompleteValuesHandler(startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	deadline := searchutil.GetDeadlineForQuery(r, startTime)
 	limit, err := httputil.GetInt(r, "limit")
 	if err != nil {
@@ -254,6 +267,9 @@ var tagsAutoCompleteValuesDuration = metrics.NewSummary(`vm_request_duration_sec
 //
 // See https://graphite.readthedocs.io/en/stable/tags.html#auto-complete-support
 func TagsAutoCompleteTagsHandler(startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	deadline := searchutil.GetDeadlineForQuery(r, startTime)
 	limit, err := httputil.GetInt(r, "limit")
 	if err != nil {
@@ -337,6 +353,9 @@ var tagsAutoCompleteTagsDuration = metrics.NewSummary(`vm_request_duration_secon
 //
 // See https://graphite.readthedocs.io/en/stable/tags.html#exploring-tags
 func TagsFindSeriesHandler(startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	deadline := searchutil.GetDeadlineForQuery(r, startTime)
 	limit, err := httputil.GetInt(r, "limit")
 	if err != nil {
@@ -412,6 +431,9 @@ var tagsFindSeriesDuration = metrics.NewSummary(`vm_request_duration_seconds{pat
 //
 // See https://graphite.readthedocs.io/en/stable/tags.html#exploring-tags
 func TagValuesHandler(startTime time.Time, tagName string, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	deadline := searchutil.GetDeadlineForQuery(r, startTime)
 	limit, err := httputil.GetInt(r, "limit")
 	if err != nil {
@@ -443,6 +465,9 @@ var tagValuesDuration = metrics.NewSummary(`vm_request_duration_seconds{path="/t
 //
 // See https://graphite.readthedocs.io/en/stable/tags.html#exploring-tags
 func TagsHandler(startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	deadline := searchutil.GetDeadlineForQuery(r, startTime)
 	limit, err := httputil.GetInt(r, "limit")
 	if err != nil {

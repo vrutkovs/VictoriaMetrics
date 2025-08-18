@@ -8,10 +8,15 @@ import (
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vmselect/netstorage"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/querytracer"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 )
 
 // MetricNamesStatsHandler returns timeseries metric names usage statistics
 func MetricNamesStatsHandler(qt *querytracer.Tracer, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	limit := 1000
 	limitStr := r.FormValue("limit")
 	if len(limitStr) > 0 {

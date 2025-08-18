@@ -6,12 +6,17 @@ import (
 	"time"
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/stringsutil"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 )
 
 // WriteSuccessResponse writes success response for AWS Firehose request.
 //
 // See https://docs.aws.amazon.com/firehose/latest/dev/httpdeliveryrequestresponse.html#responseformat
 func WriteSuccessResponse(w http.ResponseWriter, r *http.Request) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	requestID := r.Header.Get("X-Amz-Firehose-Request-Id")
 	if requestID == "" {
 		// This isn't a AWS firehose request - just return an empty response in this case.

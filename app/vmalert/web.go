@@ -260,6 +260,10 @@ type rulesFilter struct {
 }
 
 func newRulesFilter(r *http.Request) (*rulesFilter, error) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	rf := &rulesFilter{}
 	query := r.URL.Query()
 

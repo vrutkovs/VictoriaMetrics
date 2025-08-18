@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net/http"
@@ -23,6 +24,9 @@ import (
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/promscrape"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/pushmetrics"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/storage"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/sdk/trace"
 )
 
 var (
@@ -81,6 +85,19 @@ func main() {
 		return
 	}
 
+	tracingEndpoint := os.Getenv("TRACING_ENDPOINT")
+	traceExporter, err := otlptracehttp.New(context.Background(),
+		otlptracehttp.WithEndpointURL(tracingEndpoint),
+	)
+	if err != nil {
+		return
+	}
+	tp := trace.NewTracerProvider(
+		trace.WithBatcher(traceExporter,
+			trace.WithBatchTimeout(time.Second)),
+	)
+	otel.SetTracerProvider(tp)
+
 	listenAddrs := *httpListenAddrs
 	if len(listenAddrs) == 0 {
 		listenAddrs = []string{":8428"}
@@ -128,6 +145,9 @@ func main() {
 }
 
 func requestHandler(w http.ResponseWriter, r *http.Request) bool {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	if r.URL.Path == "/" {
 		if r.Method != http.MethodGet {
 			return false

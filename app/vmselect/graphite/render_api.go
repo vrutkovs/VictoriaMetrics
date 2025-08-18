@@ -10,6 +10,7 @@ import (
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/app/vmselect/searchutil"
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/bufferedwriter"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 	"github.com/VictoriaMetrics/metrics"
 )
 
@@ -25,6 +26,9 @@ var (
 //
 // See https://graphite.readthedocs.io/en/stable/render_api.html
 func RenderHandler(startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	deadline := searchutil.GetDeadlineForQuery(r, startTime)
 	format := r.FormValue("format")
 	if format != "json" {
@@ -251,6 +255,9 @@ func parseInterval(s string) (int64, error) {
 }
 
 func getStorageStep(r *http.Request) (int64, error) {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
 	s := r.FormValue("storage_step")
 	if len(s) == 0 {
 		s = r.Header.Get("Storage-Step")

@@ -27,6 +27,10 @@ var maxTagValueSuffixes = flag.Int("search.maxTagValueSuffixesPerSearch", 100e3,
 //
 // See https://graphite-api.readthedocs.io/en/latest/api.html#metrics-find
 func MetricsFindHandler(startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	deadline := searchutil.GetDeadlineForQuery(r, startTime)
 	format := r.FormValue("format")
 	if format == "" {
@@ -121,6 +125,10 @@ func deduplicatePaths(paths []string) []string {
 //
 // See https://graphite-api.readthedocs.io/en/latest/api.html#metrics-expand
 func MetricsExpandHandler(startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	deadline := searchutil.GetDeadlineForQuery(r, startTime)
 	queries := r.Form["query"]
 	if len(queries) == 0 {
@@ -201,6 +209,10 @@ func MetricsExpandHandler(startTime time.Time, w http.ResponseWriter, r *http.Re
 //
 // See https://graphite-api.readthedocs.io/en/latest/api.html#metrics-index-json
 func MetricsIndexHandler(startTime time.Time, w http.ResponseWriter, r *http.Request) error {
+	span := logger.TraceRequest(r)
+	defer span.End()
+
+
 	deadline := searchutil.GetDeadlineForQuery(r, startTime)
 	jsonp := r.FormValue("jsonp")
 	sq := storage.NewSearchQuery(0, math.MaxInt64, nil, 0)
