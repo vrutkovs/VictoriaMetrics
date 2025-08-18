@@ -386,6 +386,12 @@ func TraceRequest(r *http.Request, opts ...trace.SpanStartOption) trace.Span {
 
 	opts = append(opts, trace.WithAttributes(
 		attribute.String("location", fmt.Sprintf("%s:%d", file, line)),
+		attribute.String("method", r.Method),
+		attribute.String("path", r.URL.Path),
+		attribute.String("query", r.URL.RawQuery),
+		attribute.String("host", r.Host),
+		attribute.String("user-agent", r.UserAgent()),
+		attribute.String("remote-addr", r.RemoteAddr),
 	))
 	ctx, span := tracer.Start(r.Context(), funcName, opts...)
 	r = r.WithContext(ctx)
