@@ -66,18 +66,19 @@ func insertRows(spanCtx context.Context, timeseries []prompb.TimeSeries, extraLa
 		var metricNameRaw []byte
 		var err error
 		samples := ts.Samples
+
+		_, subspan := logger.ChildSpan(spanCtx, "promremotewrite.WriteDataPointExt")
 		for i := range samples {
 			r := &samples[i]
 
-			_, subspan := logger.ChildSpan(spanCtx, "promremotewrite.WriteDataPointExt")
 			metricNameRaw, err = ctx.WriteDataPointExt(metricNameRaw, ctx.Labels, r.Timestamp, r.Value)
 			if err != nil {
 				subspan.RecordError(err)
 				subspan.End()
 				return err
 			}
-			subspan.End()
 		}
+		subspan.End()
 	}
 	rowsInserted.Add(rowsTotal)
 	rowsPerInsert.Update(float64(rowsTotal))

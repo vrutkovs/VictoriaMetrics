@@ -2,6 +2,7 @@ package querytracer
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -11,6 +12,9 @@ import (
 	"time"
 
 	"github.com/VictoriaMetrics/VictoriaMetrics/lib/buildinfo"
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var denyQueryTracing = flag.Bool("denyQueryTracing", false, "Whether to disable the ability to trace queries. See https://docs.victoriametrics.com/victoriametrics/single-server-victoriametrics/#query-tracing")
@@ -42,6 +46,8 @@ type Tracer struct {
 	// span contains span for the given Tracer. It is added via Tracer.AddJSON().
 	// If span is non-nil, then the remaining fields aren't used.
 	span *span
+
+	ctx context.Context
 }
 
 // New creates a new instance of the tracer with the given fmt.Sprintf(format, args...) message.
@@ -49,13 +55,14 @@ type Tracer struct {
 // If enabled isn't set, then all function calls to the returned object will be no-op.
 //
 // Done or Donef must be called when the tracer should be finished.
-func New(enabled bool, format string, args ...any) *Tracer {
+func New(ctx context.Context, enabled bool, format string, args ...any) *Tracer {
 	if *denyQueryTracing || !enabled {
 		return nil
 	}
 	message := fmt.Sprintf(format, args...)
 	message = buildinfo.Version + ": " + message
 	return &Tracer{
+		ctx:       ctx,
 		message:   message,
 		startTime: time.Now(),
 	}
@@ -74,16 +81,24 @@ func (t *Tracer) Enabled() bool {
 // Create children tracers from a single goroutine and then pass them
 // to concurrent goroutines.
 func (t *Tracer) NewChild(format string, args ...any) *Tracer {
+	ctx := context.Background()
+	if t != nil && t.ctx != nil {
+		ctx = t.ctx
+	}
+	ctx, span := logger.Trace(ctx)
 	if t == nil {
 		return nil
 	}
+
 	if t.isDone.Load() {
 		panic(fmt.Errorf("BUG: NewChild() cannot be called after Donef(%q) call", t.message))
 	}
 	child := &Tracer{
+		ctx:       ctx,
 		message:   fmt.Sprintf(format, args...),
 		startTime: time.Now(),
 	}
+	span.SetAttributes(attribute.String("message", child.message))
 	t.children = append(t.children, child)
 	return child
 }
@@ -99,13 +114,18 @@ func NewOrphan(t *Tracer, format string, args ...any) *Tracer {
 	if t == nil {
 		return nil
 	}
+
+	ctx, span := logger.Trace(t.ctx)
+
 	if t.isDone.Load() {
 		panic(fmt.Errorf("BUG: NewOrphan() cannot be called after Donef(%q) call", t.message))
 	}
 	child := &Tracer{
 		message:   fmt.Sprintf(format, args...),
 		startTime: time.Now(),
+		ctx:       ctx,
 	}
+	span.SetAttributes(attribute.String("message", child.message))
 	return child
 }
 
@@ -128,11 +148,15 @@ func (t *Tracer) Done() {
 	if t == nil {
 		return
 	}
+	span := trace.SpanFromContext(t.ctx)
+	span.AddEvent("Done")
+
 	if t.isDone.Load() {
 		panic(fmt.Errorf("BUG: Donef(%q) already called", t.message))
 	}
 	t.doneTime = time.Now()
 	t.isDone.Store(true)
+	span.End()
 }
 
 // Donef appends the given fmt.Sprintf(format, args..) message to t and finished it.
@@ -147,8 +171,11 @@ func (t *Tracer) Donef(format string, args ...any) {
 		panic(fmt.Errorf("BUG: Donef(%q) already called", t.message))
 	}
 	t.message += ": " + fmt.Sprintf(format, args...)
+	span := trace.SpanFromContext(t.ctx)
+	span.AddEvent(t.message)
 	t.doneTime = time.Now()
 	t.isDone.Store(true)
+	span.End()
 }
 
 // Printf adds new fmt.Sprintf(format, args...) message to t.
@@ -161,6 +188,8 @@ func (t *Tracer) Printf(format string, args ...any) {
 	if t.isDone.Load() {
 		panic(fmt.Errorf("BUG: Printf() cannot be called after Done(%q) call", t.message))
 	}
+	span := trace.SpanFromContext(t.ctx)
+	span.AddEvent(fmt.Sprintf(format, args...))
 	now := time.Now()
 	child := &Tracer{
 		startTime: now,
@@ -183,6 +212,9 @@ func (t *Tracer) AddJSON(jsonTrace []byte) error {
 	if len(jsonTrace) == 0 {
 		return nil
 	}
+	_, otelSpan := logger.Trace(t.ctx)
+	defer otelSpan.End()
+
 	var s *span
 	if err := json.Unmarshal(jsonTrace, &s); err != nil {
 		return fmt.Errorf("cannot unmarshal json trace: %w", err)

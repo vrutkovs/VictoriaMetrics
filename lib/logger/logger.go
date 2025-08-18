@@ -407,6 +407,9 @@ func TraceRequest(r *http.Request, opts ...trace.SpanStartOption) trace.Span {
 }
 
 func GetCtxFromRequest(r *http.Request) context.Context {
+	if r == nil {
+		return context.Background()
+	}
 	return otel.GetTextMapPropagator().Extract(r.Context(), propagation.HeaderCarrier(r.Header))
 }
 

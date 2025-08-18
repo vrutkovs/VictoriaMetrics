@@ -7,7 +7,7 @@ import (
 )
 
 func TestTracerDisabled(t *testing.T) {
-	qt := New(false, "test")
+	qt := New(t.Context(), false, "test")
 	if qt.Enabled() {
 		t.Fatalf("query tracer must be disabled")
 	}
@@ -33,7 +33,7 @@ func TestTracerDisabled(t *testing.T) {
 }
 
 func TestTracerEnabled(t *testing.T) {
-	qt := New(true, "test")
+	qt := New(t.Context(), true, "test")
 	if !qt.Enabled() {
 		t.Fatalf("query tracer must be enabled")
 	}
@@ -57,7 +57,7 @@ func TestTracerEnabled(t *testing.T) {
 }
 
 func TestTracerMultiline(t *testing.T) {
-	qt := New(true, "line1\nline2")
+	qt := New(t.Context(), true, "line1\nline2")
 	qt.Printf("line3\nline4\n")
 	qt.Done()
 	s := qt.String()
@@ -72,7 +72,7 @@ func TestTracerMultiline(t *testing.T) {
 }
 
 func TestTracerToJSON(t *testing.T) {
-	qt := New(true, "test")
+	qt := New(t.Context(), true, "test")
 	if !qt.Enabled() {
 		t.Fatalf("query tracer must be enabled")
 	}
@@ -95,11 +95,11 @@ func TestTracerToJSON(t *testing.T) {
 }
 
 func TestTraceAddJSON(t *testing.T) {
-	qtChild := New(true, "child")
+	qtChild := New(t.Context(), true, "child")
 	qtChild.Printf("foo")
 	qtChild.Done()
 	jsonTrace := qtChild.ToJSON()
-	qt := New(true, "parent")
+	qt := New(t.Context(), true, "parent")
 	qt.Printf("first_line")
 	if err := qt.AddJSON([]byte(jsonTrace)); err != nil {
 		t.Fatalf("unexpected error in AddJSON: %s", err)
@@ -132,7 +132,7 @@ func TestTraceAddJSON(t *testing.T) {
 }
 
 func TestTraceMissingDonef(t *testing.T) {
-	qt := New(true, "parent")
+	qt := New(t.Context(), true, "parent")
 	qt.Printf("parent printf")
 	qtChild := qt.NewChild("child")
 	qtChild.Printf("child printf")
@@ -146,7 +146,7 @@ func TestTraceMissingDonef(t *testing.T) {
 }
 
 func TestTraceConcurrent(t *testing.T) {
-	qt := New(true, "parent")
+	qt := New(t.Context(), true, "parent")
 	childLocal := qt.NewChild("local")
 	childLocal.Printf("abc")
 	childLocal.Done()
