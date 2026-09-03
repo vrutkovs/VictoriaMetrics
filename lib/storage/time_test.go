@@ -15,42 +15,34 @@ func TestTimeRangeFromPartition(t *testing.T) {
 func testTimeRangeFromPartition(t *testing.T, initialTime time.Time) {
 	t.Helper()
 
-	y, m, _ := initialTime.UTC().Date()
+	want := initialTime.UTC().Truncate(partitionDuration)
 	var tr TimeRange
 	tr.fromPartitionTime(initialTime)
 
 	minTime := timestampToTime(tr.MinTimestamp)
-	minY, minM, _ := minTime.Date()
-	if minY != y {
-		t.Fatalf("unexpected year for MinTimestamp; got %d; want %d", minY, y)
-	}
-	if minM != m {
-		t.Fatalf("unexpected month for MinTimestamp; got %d; want %d", minM, m)
+	if !minTime.Equal(want) {
+		t.Fatalf("unexpected MinTimestamp; got %s; want %s", minTime, want)
 	}
 
-	// Verify that the previous millisecond form tr.MinTimestamp belongs to the previous month.
+	// Verify that the previous millisecond from tr.MinTimestamp belongs to the previous partition.
 	tr.MinTimestamp--
 	prevTime := timestampToTime(tr.MinTimestamp)
-	prevY, prevM, _ := prevTime.Date()
-	if prevY*12+int(prevM-1)+1 != minY*12+int(minM-1) {
-		t.Fatalf("unexpected prevY, prevM; got %d, %d; want %d, %d+1;\nprevTime=%s\nminTime=%s", prevY, prevM, minY, minM, prevTime, minTime)
+	if !prevTime.Before(minTime) || minTime.Sub(prevTime) > time.Millisecond {
+		t.Fatalf("unexpected prevTime; got %s; want 1ms before minTime=%s", prevTime, minTime)
 	}
 
 	maxTime := timestampToTime(tr.MaxTimestamp)
-	maxY, maxM, _ := maxTime.Date()
-	if maxY != y {
-		t.Fatalf("unexpected year for MaxTimestamp; got %d; want %d", maxY, y)
-	}
-	if maxM != m {
-		t.Fatalf("unexpected month for MaxTimestamp; got %d; want %d", maxM, m)
+	wantMax := want.Add(partitionDuration - time.Millisecond)
+	if !maxTime.Equal(wantMax) {
+		t.Fatalf("unexpected MaxTimestamp; got %s; want %s", maxTime, wantMax)
 	}
 
-	// Verify that the next millisecond from tr.MaxTimestamp belongs to the next month.
+	// Verify that the next millisecond from tr.MaxTimestamp belongs to the next partition.
 	tr.MaxTimestamp++
 	nextTime := timestampToTime(tr.MaxTimestamp)
-	nextY, nextM, _ := nextTime.Date()
-	if nextY*12+int(nextM-1)-1 != maxY*12+int(maxM-1) {
-		t.Fatalf("unexpected nextY, nextM; got %d, %d; want %d, %d+1;\nnextTime=%s\nmaxTime=%s", nextY, nextM, maxY, maxM, nextTime, maxTime)
+	wantNext := want.Add(partitionDuration)
+	if !nextTime.Equal(wantNext) {
+		t.Fatalf("unexpected nextTime; got %s; want %s", nextTime, wantNext)
 	}
 }
 
@@ -199,8 +191,8 @@ func TestTimeRange_fromPartitionTimestamp(t *testing.T) {
 
 	ts := time.Date(2025, 3, 23, 14, 07, 56, 999_999_999, time.UTC).UnixMilli()
 	f(ts, TimeRange{
-		MinTimestamp: time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC).UnixMilli(),
-		MaxTimestamp: time.Date(2025, 3, 31, 23, 59, 59, 999_000_000, time.UTC).UnixMilli(),
+		MinTimestamp: time.Date(2025, 3, 23, 14, 5, 0, 0, time.UTC).UnixMilli(),
+		MaxTimestamp: time.Date(2025, 3, 23, 14, 9, 59, 999_000_000, time.UTC).UnixMilli(),
 	})
 }
 

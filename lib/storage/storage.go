@@ -2326,27 +2326,30 @@ func getUserReadableMetricName(metricNameRaw []byte) string {
 }
 
 // prefillNextIndexDB gradually pre-populates the indexDB of the next partition
-// during the last idbPrefillStartSeconds seconds before that partition becomes
+// during the last prefillStartSeconds seconds before that partition becomes
 // the current one. This is needed in order to reduce spikes in CPU and disk IO
 // usage just after the switch.
 //
 // See https://github.com/VictoriaMetrics/VictoriaMetrics/issues/1401.
 func (s *Storage) prefillNextIndexDB(rows []rawRow, mrs []*MetricRow) error {
 	now := time.Unix(int64(fasttime.UnixTimestamp()), 0).UTC()
-	nextMonth := time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.UTC)
-	d := nextMonth.Sub(now).Seconds()
-	if d >= float64(s.idbPrefillStartSeconds) {
+	nextPartition := now.Truncate(partitionDuration).Add(partitionDuration)
+	d := nextPartition.Sub(now).Seconds()
+
+	// s.idbPrefillStartSeconds (default 1h) no longer fits inside a 5-minute
+	// partition, so cap the prefill window to half the partition duration.
+	prefillStartSeconds := min(s.idbPrefillStartSeconds, int64(partitionDuration.Seconds()/2))
+	if d >= float64(prefillStartSeconds) {
 		// Fast path: nothing to pre-fill because it is too early.
-		// The pre-fill is started during the last hour before the indexdb rotation.
 		return nil
 	}
 
-	// Slower path: less than nextPrefillStartSeconds left for the next indexdb rotation.
+	// Slower path: less than prefillStartSeconds left for the next indexdb rotation.
 	// Pre-populate idbNext with the increasing probability until the rotation.
-	// The probability increases from 0% to 100% proportionally to d=[nextPrefillStartSeconds .. 0].
-	pMin := d / float64(s.idbPrefillStartSeconds)
+	// The probability increases from 0% to 100% proportionally to d=[prefillStartSeconds .. 0].
+	pMin := d / float64(prefillStartSeconds)
 
-	ptwNext := s.tb.MustGetPartition(nextMonth.UnixMilli())
+	ptwNext := s.tb.MustGetPartition(nextPartition.UnixMilli())
 	idbNext := ptwNext.pt.idb
 	defer s.tb.PutPartition(ptwNext)
 	isNext := idbNext.getIndexSearch(0, 0, noDeadline)
@@ -2358,13 +2361,13 @@ func (s *Storage) prefillNextIndexDB(rows []rawRow, mrs []*MetricRow) error {
 	defer PutMetricName(mn)
 
 	// Only prefill index for samples whose timestamp falls within the last
-	// idbPrefillStartSeconds of the current month.
+	// prefillStartSeconds of the current partition.
 	tr := TimeRange{
-		MinTimestamp: nextMonth.UnixMilli() - s.idbPrefillStartSeconds*1000,
-		MaxTimestamp: nextMonth.UnixMilli() - 1,
+		MinTimestamp: nextPartition.UnixMilli() - prefillStartSeconds*1000,
+		MaxTimestamp: nextPartition.UnixMilli() - 1,
 	}
-	// Use the first date of the next month for prefilling the index.
-	date := uint64(nextMonth.UnixMilli()) / msecPerDay
+	// Use the first date of the next partition for prefilling the index.
+	date := uint64(nextPartition.UnixMilli()) / msecPerDay
 
 	timeseriesPreCreated := uint64(0)
 	for i := range rows {

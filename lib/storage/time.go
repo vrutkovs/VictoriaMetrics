@@ -69,15 +69,24 @@ func TimestampToHumanReadableFormat(timestamp int64) string {
 	return t.Format("2006-01-02T15:04:05.999Z")
 }
 
+// partitionDuration is the length of a single partition's time range.
+//
+// dev/test only: was monthly ("2006_01"); no migration path for existing
+// monthly-partitioned data directories.
+const partitionDuration = 5 * time.Minute
+
+// partitionNameLayout is the time.Format/time.Parse layout for partition dir names.
+const partitionNameLayout = "2006_01_02_1504"
+
 // timestampToPartitionName returns partition name for the given timestamp.
 func timestampToPartitionName(timestamp int64) string {
-	t := timestampToTime(timestamp)
-	return t.Format("2006_01")
+	t := timestampToTime(timestamp).Truncate(partitionDuration)
+	return t.Format(partitionNameLayout)
 }
 
 // fromPartitionName initializes tr from the given partition name.
 func (tr *TimeRange) fromPartitionName(name string) error {
-	t, err := time.Parse("2006_01", name)
+	t, err := time.Parse(partitionNameLayout, name)
 	if err != nil {
 		return fmt.Errorf("cannot parse partition name %q: %w", name, err)
 	}
@@ -93,11 +102,10 @@ func (tr *TimeRange) fromPartitionTimestamp(timestamp int64) {
 
 // fromPartitionTime initializes tr from the given partition time t.
 func (tr *TimeRange) fromPartitionTime(t time.Time) {
-	y, m, _ := t.UTC().Date()
-	minTime := time.Date(y, m, 1, 0, 0, 0, 0, time.UTC)
-	maxTime := time.Date(y, m+1, 1, 0, 0, 0, 0, time.UTC)
-	tr.MinTimestamp = minTime.Unix() * 1e3
-	tr.MaxTimestamp = maxTime.Unix()*1e3 - 1
+	minTime := t.UTC().Truncate(partitionDuration)
+	maxTime := minTime.Add(partitionDuration)
+	tr.MinTimestamp = minTime.UnixMilli()
+	tr.MaxTimestamp = maxTime.UnixMilli() - 1
 }
 
 // overlapsWith returns true if the time range overlaps with the given time

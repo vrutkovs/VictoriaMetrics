@@ -260,12 +260,12 @@ func (tb *table) UpdateMetrics(m *TableMetrics) {
 	}
 
 	// Collect separate metrics for the last partition.
-	// select current month partition as last partition
-	// because partition with biggest minTimestamp could be empty at the last day of current month
-	// when a partition for the next month is created at updateNextDayMetricIDs
-	currentMonthTimestamp := time.Now().UnixMilli()
+	// select the partition containing now() as last partition
+	// because the partition with biggest minTimestamp could be empty right
+	// after the next partition is created ahead of time.
+	nowTimestamp := time.Now().UnixMilli()
 	for _, ptw := range ptws {
-		if ptw.pt.tr.contains(currentMonthTimestamp) {
+		if ptw.pt.tr.contains(nowTimestamp) {
 			ptw.pt.UpdateMetrics(&m.LastPartition)
 			break
 		}
