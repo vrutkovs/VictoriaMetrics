@@ -16,7 +16,7 @@ import (
 	"github.com/valyala/fastrand"
 )
 
-var finalDedupScheduleInterval = time.Hour
+var finalDedupScheduleInterval = time.Minute
 
 // SetFinalDedupScheduleInterval configures the interval for checking when the final deduplication process should start.
 func SetFinalDedupScheduleInterval(d time.Duration) {

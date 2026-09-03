@@ -1567,7 +1567,7 @@ func removeParts(pws []*partWrapper, partsToRemove map[*partWrapper]struct{}) ([
 }
 
 func (pt *partition) stalePartsRemover() {
-	d := timeutil.AddJitterToDuration(7 * time.Minute)
+	d := timeutil.AddJitterToDuration(1 * time.Minute)
 	ticker := time.NewTicker(d)
 	defer ticker.Stop()
 	for {
