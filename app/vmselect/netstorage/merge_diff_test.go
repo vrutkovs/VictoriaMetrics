@@ -78,6 +78,10 @@ func valueFor(ts int64, sel int) float64 {
 		return math.NaN()
 	case 7:
 		return decimal.StaleNaN
+	case 8:
+		return math.Copysign(0, -1)
+	case 9:
+		return 0
 	case 5:
 		return float64(ts)*0.5 + 1 // conflicting value
 	}
@@ -120,7 +124,7 @@ func genSpecs(rng *rand.Rand) ([]blockSpec, int64) {
 				sel = 5
 			}
 			if rng.Intn(50) == 0 {
-				sel = 6 + rng.Intn(2)
+				sel = 6 + rng.Intn(4)
 			}
 			v := valueFor(ts, sel)
 			if rng.Intn(100) < jitterPct {
@@ -208,4 +212,53 @@ func FuzzMergeSortBlocks(f *testing.F) {
 		specs, dedupInterval := decodeSpecs(data)
 		checkMerge(t, specs, dedupInterval)
 	})
+}
+
+// TestMergeSortBlocksEdge covers replicated prefixes at block ends, bitwise value comparison and equal timestamps in a block.
+func TestMergeSortBlocksEdge(t *testing.T) {
+	negZero := math.Copysign(0, -1)
+	nanPayload := math.Float64frombits(math.Float64bits(math.NaN()) + 1)
+	b := func(ts []int64, vs ...float64) blockSpec { return blockSpec{ts, vs} }
+	cases := map[string][]blockSpec{
+		"signed zero":         {b([]int64{1, 2}, 0, 1), b([]int64{1, 2}, negZero, 1)},
+		"nan payload":         {b([]int64{1, 2}, math.NaN(), 1), b([]int64{1, 2}, nanPayload, 1)},
+		"same nan":            {b([]int64{1, 2}, math.NaN(), 1), b([]int64{1, 2}, math.NaN(), 1)},
+		"stale nan":           {b([]int64{1, 2}, decimal.StaleNaN, 1), b([]int64{1, 2}, decimal.StaleNaN, 1)},
+		"shared last sample":  {b([]int64{1, 2, 3}, 1, 2, 3), b([]int64{3, 4, 5}, 3, 4, 5)},
+		"shared first sample": {b([]int64{3, 4, 5}, 3, 4, 5), b([]int64{1, 2, 3}, 1, 2, 3)},
+		"nested":              {b([]int64{1, 2, 3, 4}, 1, 2, 3, 4), b([]int64{2, 3}, 2, 3)},
+		"prefix":              {b([]int64{1, 2, 3}, 1, 2, 3), b([]int64{1, 2}, 1, 2)},
+		"equal ts in block":   {b([]int64{1, 2, 2, 3}, 1, 2, 2, 3), b([]int64{2, 2, 3}, 2, 2, 3)},
+		"equal ts in b only":  {b([]int64{1, 2, 3}, 1, 2, 3), b([]int64{2, 2, 3}, 2, 2, 3)},
+		"equal ts after":      {b([]int64{1, 2}, 1, 2), b([]int64{2, 2, 3}, 2, 2, 3)},
+		"min int64":           {b([]int64{math.MinInt64, 1}, 1, 2), b([]int64{math.MinInt64, 1}, 1, 2)},
+		"max int64":           {b([]int64{1, math.MaxInt64}, 1, 2), b([]int64{1, math.MaxInt64}, 1, 2)},
+	}
+	for name, specs := range cases {
+		for _, dedupInterval := range []int64{0, 1, 30000} {
+			t.Run(name, func(t *testing.T) { checkMerge(t, specs, dedupInterval) })
+		}
+	}
+}
+
+// TestSortBlockFreeList checks that blocks released by mergeFast are reset.
+func TestSortBlockFreeList(t *testing.T) {
+	sbh := &sortBlocksHeap{}
+	for range 3 {
+		for _, s := range []blockSpec{{[]int64{30000, 60000}, []float64{1, 2}}, {[]int64{30000, 60000}, []float64{1, 2}}} {
+			sb := sbh.getBlock()
+			if len(sb.Timestamps) != 0 || len(sb.Values) != 0 || sb.NextIdx != 0 || sb.rowsSkipped != 0 {
+				t.Fatalf("non-empty block from the free list: %+v", sb)
+			}
+			sb.Timestamps = append(sb.Timestamps, s.ts...)
+			sb.Values = append(sb.Values, s.vs...)
+			sb.rowsSkipped = 1
+			sbh.sbs = append(sbh.sbs, sb)
+		}
+		var dst Result
+		mergeSortBlocks(&dst, sbh, 30000)
+		if len(dst.Timestamps) != 2 || len(sbh.free) != 2 {
+			t.Fatalf("unexpected result: ts=%v, free=%d", dst.Timestamps, len(sbh.free))
+		}
+	}
 }
