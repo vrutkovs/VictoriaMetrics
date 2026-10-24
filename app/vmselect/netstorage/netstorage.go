@@ -762,13 +762,10 @@ func mergeSorted(dst *Result, sbs []*sortBlock, total int, dedupInterval int64, 
 
 		// Skip the samples replicated from the already merged ones.
 		i, _ := slices.BinarySearch(tss, bts[0])
-		k := 0
-		for ; i+k < n && k < len(bts) && tss[i+k] == bts[k]; k++ {
-			if dedupInterval <= 0 || math.Float64bits(vs[i+k]) != math.Float64bits(bvs[k]) ||
-				i+k+1 < n && tss[i+k+1] == tss[i+k] || k+1 < len(bts) && bts[k+1] == bts[k] {
-				tss, vs = tss[:0], vs[:0]
-				return false
-			}
+		k, ok := replicatedPrefix(tss[i:], vs[i:], bts, bvs)
+		if !ok || k > 0 && dedupInterval <= 0 {
+			tss, vs = tss[:0], vs[:0]
+			return false
 		}
 		i += k
 		bts, bvs = bts[k:], bvs[k:]
@@ -790,7 +787,6 @@ func mergeSorted(dst *Result, sbs []*sortBlock, total int, dedupInterval int64, 
 		sbh.tailTs = append(sbh.tailTs[:0], tss[i:]...)
 		sbh.tailVs = append(sbh.tailVs[:0], vs[i:]...)
 		tss, vs = tss[:i], vs[:i]
-		var ok bool
 		tss, vs, ok = mergeTail(tss, vs, sbh.tailTs, sbh.tailVs, bts, bvs, dedupInterval > 0)
 		if !ok {
 			tss, vs = tss[:0], vs[:0]
@@ -798,6 +794,36 @@ func mergeSorted(dst *Result, sbs []*sortBlock, total int, dedupInterval int64, 
 		}
 	}
 	return true
+}
+
+// replicatedPrefix returns the number of leading samples of (bts, bvs) identical to the leading samples of (ats, avs).
+//
+// It returns false if these samples are not singletons, i.e. a neighbour has the same timestamp.
+func replicatedPrefix(ats []int64, avs []float64, bts []int64, bvs []float64) (int, bool) {
+	m := min(len(ats), len(bts))
+	a, b := ats[:m], bts[:m]
+	k := 0
+	// Timestamps are compared first, since they are the cheapest way to reject a block. min int64 is never replicated.
+	prev := int64(math.MinInt64)
+	for k < m && a[k] == b[k] {
+		if b[k] == prev {
+			return 0, false
+		}
+		prev = b[k]
+		k++
+	}
+	if k == 0 {
+		return 0, true
+	}
+	for i, v := range avs[:k] {
+		if math.Float64bits(v) != math.Float64bits(bvs[i]) {
+			return 0, false
+		}
+	}
+	if k < len(ats) && ats[k] == prev || k < len(bts) && bts[k] == prev {
+		return 0, false
+	}
+	return k, true
 }
 
 // mergeTail appends sorted (ats, avs) and (bts, bvs) to (dstTs, dstVs). Identical samples are appended once.
