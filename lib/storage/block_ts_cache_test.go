@@ -182,3 +182,37 @@ func TestTimestampsCacheProbe(t *testing.T) {
 		t.Fatalf("cache with hits must stay on; hits=%d", c.hits.Load())
 	}
 }
+
+// Entry buffers return to the pool on Reset and are reused by the next inserts: the reused buffers must not leak old data.
+func TestTimestampsCacheReuse(t *testing.T) {
+	SetTimestampsCacheMaxBytes(1 << 20)
+	defer SetTimestampsCacheMaxBytes(0)
+
+	var c TimestampsCache
+	var b Block
+	long, short := jitterTimestamps(1, 4096), jitterTimestamps(2, 512)
+	base := tsCacheBytes.Load() // other tests may leave bytes in the global budget
+
+	for range 3 {
+		loadBlock(t, &b, &c, long)
+	}
+	c.Reset()
+
+	// The pooled entry may be handed to a shorter list (sync.Pool gives no guarantees, so repeat).
+	for round := range 50 {
+		for i := range 3 {
+			loadBlock(t, &b, &c, short)
+			if !reflect.DeepEqual(b.timestamps, short) {
+				t.Fatalf("round %d, iteration %d: stale data after buffer reuse", round, i)
+			}
+		}
+		loadBlock(t, &b, &c, long)
+		if !reflect.DeepEqual(b.timestamps, long) {
+			t.Fatalf("round %d: wrong timestamps", round)
+		}
+		c.Reset()
+	}
+	if n := tsCacheBytes.Load(); n != base {
+		t.Fatalf("Reset must release the size; got %d, want %d", n, base)
+	}
+}

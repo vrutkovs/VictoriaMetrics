@@ -3,7 +3,6 @@ package storage
 import (
 	"bytes"
 	"fmt"
-	"slices"
 	"sync"
 	"sync/atomic"
 
@@ -360,6 +359,13 @@ type tsCacheEntry struct {
 
 // Reset drops all the cached entries and switches the cache on.
 func (c *TimestampsCache) Reset() {
+	// Entries are read-only after publish and nobody holds them after Reset, so their buffers can be reused.
+	c.m.Range(func(_, v any) bool {
+		if e := v.(*tsCacheEntry); e != tsCacheSeen {
+			tsCacheEntryPool.Put(e)
+		}
+		return true
+	})
 	c.m.Clear()
 	c.lookups.Store(0)
 	c.hits.Store(0)
@@ -407,11 +413,26 @@ func (c *TimestampsCache) unmarshal(dst []int64, bh *blockHeader, data []byte) (
 	if v.(*tsCacheEntry) != tsCacheSeen {
 		return dst, nil
 	}
-	e := &tsCacheEntry{data: bytes.Clone(data), timestamps: slices.Clone(dst)}
+	e := getTsCacheEntry()
+	e.data = append(e.data[:0], data...)
+	e.timestamps = append(e.timestamps[:0], dst...)
 	if c.m.CompareAndSwap(k, tsCacheSeen, e) {
 		c.addBytes(int64(len(e.data) + 8*len(e.timestamps)))
+		return dst, nil
 	}
+
+	// Another worker published the key first, e was never shared.
+	tsCacheEntryPool.Put(e)
 	return dst, nil
+}
+
+var tsCacheEntryPool sync.Pool
+
+func getTsCacheEntry() *tsCacheEntry {
+	if v := tsCacheEntryPool.Get(); v != nil {
+		return v.(*tsCacheEntry)
+	}
+	return &tsCacheEntry{}
 }
 
 func (c *TimestampsCache) addBytes(n int64) {
