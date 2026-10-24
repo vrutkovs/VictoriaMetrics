@@ -147,7 +147,7 @@ func BenchmarkMerge(b *testing.B) {
 						dst.reset()
 						sbs := sbh.sbs[:0]
 						for _, s := range sc.blocks {
-							sb := getSortBlock()
+							sb := sbh.getBlock()
 							sb.Timestamps = append(sb.Timestamps[:0], s.ts...)
 							sb.Values = append(sb.Values[:0], s.vs...)
 							sbs = append(sbs, sb)

@@ -412,7 +412,10 @@ func (upw *unpackWork) unpack(ctx context.Context, tmpBlock *storage.Block) {
 		upw.err = searchutil.AnnotateContextError(ctx)
 		return
 	}
-	sb := getSortBlock()
+	sb := upw.sb
+	if sb == nil {
+		sb = getSortBlock()
+	}
 	if err := sb.unpackFrom(tmpBlock, upw.tbfs, upw.addr, upw.tr); err != nil {
 		putSortBlock(sb)
 		upw.err = fmt.Errorf("cannot unpack block: %w", err)
@@ -490,7 +493,7 @@ func (pts *packedTimeseries) Unpack(ctx context.Context, dst *Result, tbfs []*tm
 	}
 	sbh := getSortBlocksHeap()
 	var err error
-	sbh.sbs, err = pts.unpackTo(ctx, sbh.sbs[:0], tbfs, tr)
+	sbh.sbs, err = pts.unpackTo(ctx, sbh, tbfs, tr)
 	pts.addrs = pts.addrs[:0]
 	if err != nil {
 		putSortBlocksHeap(sbh)
@@ -502,7 +505,8 @@ func (pts *packedTimeseries) Unpack(ctx context.Context, dst *Result, tbfs []*tm
 	return nil
 }
 
-func (pts *packedTimeseries) unpackTo(ctx context.Context, dst []*sortBlock, tbfs []*tmpBlocksFile, tr storage.TimeRange) ([]*sortBlock, error) {
+func (pts *packedTimeseries) unpackTo(ctx context.Context, sbh *sortBlocksHeap, tbfs []*tmpBlocksFile, tr storage.TimeRange) ([]*sortBlock, error) {
+	dst := sbh.sbs[:0]
 	upwsLen := len(pts.addrs)
 	if upwsLen == 0 {
 		// Nothing to do
@@ -521,6 +525,7 @@ func (pts *packedTimeseries) unpackTo(ctx context.Context, dst []*sortBlock, tbf
 		var err error
 		for _, addr := range pts.addrs {
 			initUnpackWork(upw, addr)
+			upw.sb = sbh.getBlock()
 			upw.unpack(ctx, tmpBlock)
 			if upw.err != nil {
 				err = upw.err
@@ -729,7 +734,8 @@ func mergeFast(dst *Result, sbh *sortBlocksHeap, dedupInterval int64) bool {
 	}
 	// clear the sort blocks and return the buffers to the pool
 	for i, sb := range sbs {
-		putSortBlock(sb)
+		sb.reset()
+		sbh.free = append(sbh.free, sb)
 		sbs[i] = nil
 	}
 	sbh.sbs = sbs[:0]
@@ -928,10 +934,23 @@ func (sb *sortBlock) unpackFrom(tmpBlock *storage.Block, tbfs []*tmpBlocksFile, 
 type sortBlocksHeap struct {
 	sbs []*sortBlock
 
+	// free holds reset sort blocks for the next unpack, which saves sync.Pool calls.
+	free []*sortBlock
+
 	// buffers for mergeFast
 	sorted []*sortBlock
 	tailTs []int64
 	tailVs []float64
+}
+
+func (sbh *sortBlocksHeap) getBlock() *sortBlock {
+	n := len(sbh.free)
+	if n == 0 {
+		return getSortBlock()
+	}
+	sb := sbh.free[n-1]
+	sbh.free = sbh.free[:n-1]
+	return sb
 }
 
 func (sbh *sortBlocksHeap) getNextBlock() *sortBlock {
