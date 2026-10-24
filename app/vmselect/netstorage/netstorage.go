@@ -648,7 +648,7 @@ func mergeSortBlocks(dst *Result, sbh *sortBlocksHeap, dedupInterval int64) {
 	for _, sb := range sbh.sbs {
 		rowsSkipped += sb.rowsSkipped
 		if len(sb.Timestamps) == 0 {
-			putSortBlock(sb)
+			sbh.putBlock(sb)
 			continue
 		}
 		sbs = append(sbs, sb)
@@ -669,7 +669,7 @@ func mergeSortBlocks(dst *Result, sbh *sortBlocksHeap, dedupInterval int64) {
 		if len(sbs) == 1 {
 			dst.Timestamps = append(dst.Timestamps, top.Timestamps[top.NextIdx:]...)
 			dst.Values = append(dst.Values, top.Values[top.NextIdx:]...)
-			putSortBlock(top)
+			sbh.putBlock(top)
 			break
 		}
 		sbNext := sbh.getNextBlock()
@@ -689,7 +689,7 @@ func mergeSortBlocks(dst *Result, sbh *sortBlocksHeap, dedupInterval int64) {
 			heap.Fix(sbh, 0)
 		} else {
 			heap.Pop(sbh)
-			putSortBlock(top)
+			sbh.putBlock(top)
 		}
 	}
 	finishMerge(dst, dedupSamples, dedupInterval)
@@ -734,8 +734,7 @@ func mergeFast(dst *Result, sbh *sortBlocksHeap, dedupInterval int64) bool {
 	}
 	// clear the sort blocks and return the buffers to the pool
 	for i, sb := range sbs {
-		sb.reset()
-		sbh.free = append(sbh.free, sb)
+		sbh.putBlock(sb)
 		sbs[i] = nil
 	}
 	sbh.sbs = sbs[:0]
@@ -951,6 +950,11 @@ func (sbh *sortBlocksHeap) getBlock() *sortBlock {
 	sb := sbh.free[n-1]
 	sbh.free = sbh.free[:n-1]
 	return sb
+}
+
+func (sbh *sortBlocksHeap) putBlock(sb *sortBlock) {
+	sb.reset()
+	sbh.free = append(sbh.free, sb)
 }
 
 func (sbh *sortBlocksHeap) getNextBlock() *sortBlock {
