@@ -17,6 +17,41 @@ func TestMarshaledBlockHeaderSize(t *testing.T) {
 	}
 }
 
+func TestBlockHeaderUnmarshalAllFields(t *testing.T) {
+	// Every field gets a distinct non-zero value, so a wrong offset in Unmarshal is detected.
+	bh := blockHeader{
+		TSID: TSID{
+			AccountID: 1, ProjectID: 2, MetricGroupID: 3<<40 + 4, JobID: 5, InstanceID: 6, MetricID: 7<<33 + 8,
+		},
+		MinTimestamp:          -1 << 40,
+		MaxTimestamp:          1<<41 + 9,
+		FirstValue:            -(1<<42 + 10),
+		TimestampsBlockOffset: 11<<34 + 12,
+		ValuesBlockOffset:     13<<35 + 14,
+		TimestampsBlockSize:   15,
+		ValuesBlockSize:       16,
+		RowsCount:             17,
+		Scale:                 -18,
+		TimestampsMarshalType: encoding.MarshalTypeZSTDNearestDelta2,
+		ValuesMarshalType:     encoding.MarshalTypeNearestDelta,
+		PrecisionBits:         19,
+	}
+	data := bh.Marshal([]byte("prefix"))[len("prefix"):]
+	data = append(data, "tail"...)
+
+	var bh2 blockHeader
+	tail, err := bh2.Unmarshal(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if string(tail) != "tail" {
+		t.Fatalf("unexpected tail; got %q; want %q", tail, "tail")
+	}
+	if bh2 != bh {
+		t.Fatalf("unexpected blockHeader;\ngot  %+v\nwant %+v", bh2, bh)
+	}
+}
+
 func TestBlockHeaderMarshalUnmarshal(t *testing.T) {
 	var bh blockHeader
 	for i := range 1000 {

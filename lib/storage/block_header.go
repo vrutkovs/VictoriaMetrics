@@ -93,11 +93,9 @@ func (bh *blockHeader) Less(src *blockHeader) bool {
 }
 
 // marshaledBlockHeaderSize is the size of marshaled block header.
-var marshaledBlockHeaderSize = func() int {
-	var bh blockHeader
-	data := bh.Marshal(nil)
-	return len(data)
-}()
+//
+// It is a constant, so Unmarshal needs a single bounds check. TestMarshaledBlockHeaderSize verifies it.
+const marshaledBlockHeaderSize = 89
 
 // Marshal appends marshaled bh to dst and returns the result.
 func (bh *blockHeader) Marshal(dst []byte) []byte {
@@ -121,39 +119,28 @@ func (bh *blockHeader) Unmarshal(src []byte) ([]byte, error) {
 		return src, fmt.Errorf("too short block header; got %d bytes; want %d bytes", len(src), marshaledBlockHeaderSize)
 	}
 
-	tail, err := bh.TSID.Unmarshal(src)
-	if err != nil {
-		return src, fmt.Errorf("cannot unmarshal TSID: %w", err)
-	}
-	src = tail
+	// Fixed offsets match Marshal. They avoid per-field re-slicing of src.
+	b := src[:marshaledBlockHeaderSize]
+	bh.TSID.AccountID = encoding.UnmarshalUint32(b[0:])
+	bh.TSID.ProjectID = encoding.UnmarshalUint32(b[4:])
+	bh.TSID.MetricGroupID = encoding.UnmarshalUint64(b[8:])
+	bh.TSID.JobID = encoding.UnmarshalUint32(b[16:])
+	bh.TSID.InstanceID = encoding.UnmarshalUint32(b[20:])
+	bh.TSID.MetricID = encoding.UnmarshalUint64(b[24:])
+	bh.MinTimestamp = encoding.UnmarshalInt64(b[32:])
+	bh.MaxTimestamp = encoding.UnmarshalInt64(b[40:])
+	bh.FirstValue = encoding.UnmarshalInt64(b[48:])
+	bh.TimestampsBlockOffset = encoding.UnmarshalUint64(b[56:])
+	bh.ValuesBlockOffset = encoding.UnmarshalUint64(b[64:])
+	bh.TimestampsBlockSize = encoding.UnmarshalUint32(b[72:])
+	bh.ValuesBlockSize = encoding.UnmarshalUint32(b[76:])
+	bh.RowsCount = encoding.UnmarshalUint32(b[80:])
+	bh.Scale = encoding.UnmarshalInt16(b[84:])
+	bh.TimestampsMarshalType = encoding.MarshalType(b[86])
+	bh.ValuesMarshalType = encoding.MarshalType(b[87])
+	bh.PrecisionBits = b[88]
 
-	bh.MinTimestamp = encoding.UnmarshalInt64(src)
-	src = src[8:]
-	bh.MaxTimestamp = encoding.UnmarshalInt64(src)
-	src = src[8:]
-	bh.FirstValue = encoding.UnmarshalInt64(src)
-	src = src[8:]
-	bh.TimestampsBlockOffset = encoding.UnmarshalUint64(src)
-	src = src[8:]
-	bh.ValuesBlockOffset = encoding.UnmarshalUint64(src)
-	src = src[8:]
-	bh.TimestampsBlockSize = encoding.UnmarshalUint32(src)
-	src = src[4:]
-	bh.ValuesBlockSize = encoding.UnmarshalUint32(src)
-	src = src[4:]
-	bh.RowsCount = encoding.UnmarshalUint32(src)
-	src = src[4:]
-	bh.Scale = encoding.UnmarshalInt16(src)
-	src = src[2:]
-	bh.TimestampsMarshalType = encoding.MarshalType(src[0])
-	src = src[1:]
-	bh.ValuesMarshalType = encoding.MarshalType(src[0])
-	src = src[1:]
-	bh.PrecisionBits = uint8(src[0])
-	src = src[1:]
-
-	err = bh.validate()
-	return src, err
+	return src[marshaledBlockHeaderSize:], bh.validate()
 }
 
 func (bh *blockHeader) marshalPortable(dst []byte) []byte {
