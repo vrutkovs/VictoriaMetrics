@@ -1763,21 +1763,17 @@ func newTmpBlocksFileWrapper(sns []*storageNode) *tmpBlocksFileWrapper {
 	}
 }
 
-func (tbfw *tmpBlocksFileWrapper) RegisterAndWriteBlock(mb *storage.MetricBlock, workerID uint) error {
+// RegisterAndWriteBlock stores the marshaled block for the given metricName.
+func (tbfw *tmpBlocksFileWrapper) RegisterAndWriteBlock(metricName, block []byte, workerID uint) error {
 	tbfwLocal := &tbfw.shards[workerID]
 	tbfwLocal.initIfNeeded()
 
-	bb := tmpBufPool.Get()
-	bb.B = storage.MarshalBlock(bb.B[:0], &mb.Block)
-
-	addr, err := tbfwLocal.tbf.WriteBlockData(bb.B, workerID)
-	tmpBufPool.Put(bb)
+	addr, err := tbfwLocal.tbf.WriteBlockData(block, workerID)
 	if err != nil {
 		return err
 	}
 
 	m := tbfwLocal.m
-	metricName := mb.MetricName
 	addrsIdx := tbfwLocal.prevAddrsIdx
 	if tbfwLocal.prevMetricName == nil || string(metricName) != string(tbfwLocal.prevMetricName) {
 		idx, ok := m[string(metricName)]
@@ -2066,14 +2062,18 @@ func ProcessSearchQuery(ctx context.Context, qt *querytracer.Tracer, denyPartial
 	blocksRead := newPerNodeCounter(sns)
 	samples := newPerNodeCounter(sns)
 	maxSamplesPerWorker := uint64(*maxSamplesPerQuery) / uint64(len(sns))
-	processBlock := func(mb *storage.MetricBlock, workerID uint) error {
+	processBlock := func(rawBlock []byte, workerID uint) error {
+		metricName, block, rows, err := storage.SplitMetricBlock(rawBlock)
+		if err != nil {
+			return fmt.Errorf("cannot unmarshal MetricBlock from %d bytes: %w", len(rawBlock), err)
+		}
 		blocksRead.Add(workerID, 1)
 
 		// Take into account all the samples in the block when checking for *maxSamplesPerQuery limit,
 		// since CPU time is spent on unpacking all the samples in the block, even if only a few samples
 		// are left then because of the given time range.
 		// This allows effectively limiting CPU resources used per query.
-		n := samples.Add(workerID, uint64(mb.Block.RowsCount()))
+		n := samples.Add(workerID, uint64(rows))
 		if *maxSamplesPerQuery > 0 && n > maxSamplesPerWorker && samples.GetTotal() > uint64(*maxSamplesPerQuery) {
 			return &limitExceededErr{
 				err: fmt.Errorf("cannot select more than -search.maxSamplesPerQuery=%d samples; possible solutions: "+
@@ -2082,14 +2082,15 @@ func ProcessSearchQuery(ctx context.Context, qt *querytracer.Tracer, denyPartial
 			}
 		}
 
-		if err := tbfw.RegisterAndWriteBlock(mb, workerID); err != nil {
+		// The block is written as is, so it is parsed at MustReadBlockAt only.
+		if err := tbfw.RegisterAndWriteBlock(metricName, block, workerID); err != nil {
 			return &tmpBlocksFileErr{
 				err: fmt.Errorf("cannot write MetricBlock to temporary blocks file: %w", err),
 			}
 		}
 		return nil
 	}
-	isPartial, err := processBlocks(ctx, qt, sns, denyPartialResponse, sq, processBlock)
+	isPartial, err := processBlocksInternal(ctx, qt, sns, denyPartialResponse, sq, processBlock)
 	if err != nil {
 		tbfw.closeTmpBlockFiles()
 		return nil, false, fmt.Errorf("error occured during search: %w", err)

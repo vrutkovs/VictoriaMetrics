@@ -100,6 +100,35 @@ func (mb *MetricBlock) Unmarshal(src []byte) ([]byte, error) {
 	return UnmarshalBlock(&mb.Block, src)
 }
 
+// SplitMetricBlock splits the marshaled MetricBlock src into metric name and marshaled Block.
+//
+// It validates the block without copying its data and returns the number of rows in it.
+// The returned slices point to src.
+func SplitMetricBlock(src []byte) (metricName, block []byte, rows int, err error) {
+	metricName, nSize := encoding.UnmarshalBytes(src)
+	if nSize <= 0 {
+		return nil, nil, 0, fmt.Errorf("cannot unmarshal MetricName")
+	}
+	block = src[nSize:]
+
+	var bh blockHeader
+	tail, err := bh.Unmarshal(block)
+	if err != nil {
+		return nil, nil, 0, fmt.Errorf("cannot unmarshal blockHeader: %w", err)
+	}
+	for _, name := range [...]string{"timestampsData", "valuesData"} {
+		_, nSize := encoding.UnmarshalBytes(tail)
+		if nSize <= 0 {
+			return nil, nil, 0, fmt.Errorf("cannot unmarshal %s", name)
+		}
+		tail = tail[nSize:]
+	}
+	if len(tail) > 0 {
+		return nil, nil, 0, fmt.Errorf("unexpected tail after the block; len(tail)=%d", len(tail))
+	}
+	return metricName, block, int(bh.RowsCount), nil
+}
+
 // UnmarshalBlock unmarshal Block from src to dst.
 //
 // dst.UnmarshalData isn't called on the block.
