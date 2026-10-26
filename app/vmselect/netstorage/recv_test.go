@@ -18,7 +18,7 @@ func TestRegisterAndWriteBlockRoundTrip(t *testing.T) {
 		for i := range tbfw.shards {
 			tbfw.shards[i].initIfNeeded()
 			if spill {
-				tbfw.shards[i].tbf.buf = make([]byte, 0, 100)
+				tbfw.shards[i].tbf.maxBufLen = 100
 			}
 		}
 

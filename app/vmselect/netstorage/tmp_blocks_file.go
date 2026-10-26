@@ -56,8 +56,20 @@ var (
 	tmpBufSizeSummary = metrics.NewSummary(`vm_tmp_blocks_inmemory_file_size_bytes`)
 )
 
+// tmpBlocksChunkSize is the size of a chunk of the in-memory part of tmpBlocksFile.
+const tmpBlocksChunkSize = 64 * 1024
+
+type tmpBlocksChunk [tmpBlocksChunkSize]byte
+
+// tmpBlocksChunkPool is shared by all tmpBlocksFile, so the memory kept between
+// queries depends on the bytes in flight and not on maxBufLen.
+var tmpBlocksChunkPool sync.Pool
+
 type tmpBlocksFile struct {
-	buf []byte
+	// chunks contain bufLen bytes not flushed to the file yet. All the chunks except the last one are full.
+	chunks    []*tmpBlocksChunk
+	bufLen    int
+	maxBufLen int
 
 	f *os.File
 	r *fs.ReaderAt
@@ -71,18 +83,18 @@ type tmpBlocksFile struct {
 func getTmpBlocksFile() *tmpBlocksFile {
 	v := tmpBlocksFilePool.Get()
 	if v == nil {
-		return &tmpBlocksFile{
-			buf: make([]byte, 0, maxInmemoryTmpBlocksFile()),
-		}
+		v = &tmpBlocksFile{}
 	}
-	return v.(*tmpBlocksFile)
+	tbf := v.(*tmpBlocksFile)
+	tbf.maxBufLen = maxInmemoryTmpBlocksFile()
+	return tbf
 }
 
 func putTmpBlocksFile(tbf *tmpBlocksFile) {
 	tbf.MustClose()
 	bufLen := tbf.Len()
 	tmpBufSizeSummary.Update(float64(bufLen))
-	tbf.buf = tbf.buf[:0]
+	tbf.resetBuf()
 	tbf.f = nil
 	tbf.r = nil
 	tbf.offset = 0
@@ -127,13 +139,13 @@ func (tbf *tmpBlocksFile) WriteBlockData(b []byte, tbfIdx uint) (tmpBlockAddr, e
 	addr.offset = tbf.offset
 	addr.size = len(b)
 	tbf.offset += uint64(addr.size)
-	if len(tbf.buf)+len(b) <= cap(tbf.buf) {
-		// Fast path - the data fits tbf.buf
-		tbf.buf = append(tbf.buf, b...)
+	if tbf.bufLen+len(b) <= tbf.maxBufLen {
+		// Fast path - the data fits the in-memory chunks
+		tbf.appendBuf(b)
 		return addr, nil
 	}
 
-	// Slow path: flush the data from tbf.buf to file.
+	// Slow path: flush the data from the in-memory chunks to file.
 	if tbf.f == nil {
 		f, err := os.CreateTemp(tmpBlocksDir, "")
 		if err != nil {
@@ -143,8 +155,8 @@ func (tbf *tmpBlocksFile) WriteBlockData(b []byte, tbfIdx uint) (tmpBlockAddr, e
 		tbf.f = f
 		tmpBlocksFilesCreated.Inc()
 	}
-	_, err := tbf.f.Write(tbf.buf)
-	tbf.buf = append(tbf.buf[:0], b...)
+	err := tbf.flushBuf()
+	tbf.appendBuf(b)
 	if err != nil {
 		// The blocks buffered at tbf.buf could be partially lost, mark the tbf as unusable.
 		tbf.err = fmt.Errorf("cannot write block to %q: %w", tbf.f.Name(), err)
@@ -166,11 +178,11 @@ func (tbf *tmpBlocksFile) Finalize() error {
 		return nil
 	}
 	fname := tbf.f.Name()
-	if _, err := tbf.f.Write(tbf.buf); err != nil {
-		tbf.err = fmt.Errorf("cannot write the remaining %d bytes to %q: %w", len(tbf.buf), fname, err)
+	bufLen := tbf.bufLen
+	if err := tbf.flushBuf(); err != nil {
+		tbf.err = fmt.Errorf("cannot write the remaining %d bytes to %q: %w", bufLen, fname, err)
 		return tbf.err
 	}
-	tbf.buf = tbf.buf[:0]
 	r := fs.NewReaderAt(tbf.f)
 
 	// Hint the OS that the file is read almost sequentially.
@@ -193,13 +205,18 @@ func (tbf *tmpBlocksFile) MustReadBlockAt(dst *storage.Block, addr tmpBlockAddr)
 		logger.Panicf("BUG: cannot read block at %s from the temporary blocks file with the failed write: %s", addr, tbf.err)
 	}
 	var buf []byte
-	if tbf.r == nil {
-		buf = tbf.buf[addr.offset : addr.offset+uint64(addr.size)]
+	if off := addr.offset % tmpBlocksChunkSize; tbf.r == nil && off+uint64(addr.size) <= tmpBlocksChunkSize {
+		buf = tbf.chunks[addr.offset/tmpBlocksChunkSize][off : off+uint64(addr.size)]
 	} else {
 		bb := tmpBufPool.Get()
 		defer tmpBufPool.Put(bb)
 		bb.B = bytesutil.ResizeNoCopyMayOverallocate(bb.B, addr.size)
-		tbf.r.MustReadAt(bb.B, int64(addr.offset))
+		if tbf.r != nil {
+			tbf.r.MustReadAt(bb.B, int64(addr.offset))
+		} else {
+			// The block straddles the chunks.
+			tbf.copyBuf(bb.B, addr.offset)
+		}
 		buf = bb.B
 	}
 	tail, err := storage.UnmarshalBlock(dst, buf)
@@ -212,6 +229,54 @@ func (tbf *tmpBlocksFile) MustReadBlockAt(dst *storage.Block, addr tmpBlockAddr)
 }
 
 var tmpBufPool bytesutil.ByteBufferPool
+
+func (tbf *tmpBlocksFile) appendBuf(b []byte) {
+	for len(b) > 0 {
+		pos := tbf.bufLen % tmpBlocksChunkSize
+		if pos == 0 {
+			c, _ := tmpBlocksChunkPool.Get().(*tmpBlocksChunk)
+			if c == nil {
+				c = &tmpBlocksChunk{}
+			}
+			tbf.chunks = append(tbf.chunks, c)
+		}
+		n := copy(tbf.chunks[len(tbf.chunks)-1][pos:], b)
+		tbf.bufLen += n
+		b = b[n:]
+	}
+}
+
+// copyBuf copies len(dst) bytes starting at the given offset from the in-memory chunks to dst.
+func (tbf *tmpBlocksFile) copyBuf(dst []byte, offset uint64) {
+	for len(dst) > 0 {
+		n := copy(dst, tbf.chunks[offset/tmpBlocksChunkSize][offset%tmpBlocksChunkSize:])
+		dst = dst[n:]
+		offset += uint64(n)
+	}
+}
+
+// flushBuf writes the in-memory chunks to tbf.f and releases them.
+func (tbf *tmpBlocksFile) flushBuf() error {
+	var err error
+	left := tbf.bufLen
+	for _, c := range tbf.chunks {
+		if _, err = tbf.f.Write(c[:min(left, tmpBlocksChunkSize)]); err != nil {
+			break
+		}
+		left -= tmpBlocksChunkSize
+	}
+	tbf.resetBuf()
+	return err
+}
+
+func (tbf *tmpBlocksFile) resetBuf() {
+	for i, c := range tbf.chunks {
+		tmpBlocksChunkPool.Put(c)
+		tbf.chunks[i] = nil
+	}
+	tbf.chunks = tbf.chunks[:0]
+	tbf.bufLen = 0
+}
 
 func (tbf *tmpBlocksFile) MustClose() {
 	if tbf.f != nil {

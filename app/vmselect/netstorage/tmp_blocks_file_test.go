@@ -41,7 +41,7 @@ func TestTmpBlocksFileWriteFailure(t *testing.T) {
 	tbf := getTmpBlocksFile()
 	defer putTmpBlocksFile(tbf)
 
-	// Write blocks until tbf.buf is flushed to the file. The flush must fail.
+	// Write blocks until the in-memory data is flushed to the file. The flush must fail.
 	b := make([]byte, 64*1024)
 	var writeErr error
 	for range maxInmemoryTmpBlocksFile()/len(b) + 2 {
@@ -195,4 +195,229 @@ func testTmpBlocksFile() error {
 		}
 	}
 	return nil
+}
+
+// memBytes returns the data stored at addr in the in-memory part of tbf.
+func memBytes(tbf *tmpBlocksFile, addr tmpBlockAddr) []byte {
+	b := make([]byte, addr.size)
+	tbf.copyBuf(b, addr.offset)
+	return b
+}
+
+// fileBytes returns the data stored at addr in the finalized file of tbf.
+func fileBytes(tbf *tmpBlocksFile, addr tmpBlockAddr) []byte {
+	b := make([]byte, addr.size)
+	tbf.r.MustReadAt(b, int64(addr.offset))
+	return b
+}
+
+// testBlock returns a block of the given size, where every byte is derived from seed and its position.
+func testBlock(size int, seed byte) []byte {
+	b := make([]byte, size)
+	for i := range b {
+		b[i] = seed + byte(i*7)
+	}
+	return b
+}
+
+func TestTmpBlocksFileLimit(t *testing.T) {
+	// f writes blocks of the given sizes and checks the spill state and the content after Finalize.
+	f := func(limit int, sizes []int, wantSpill bool) {
+		t.Helper()
+		tbf := getTmpBlocksFile()
+		defer putTmpBlocksFile(tbf)
+		tbf.maxBufLen = limit
+
+		var addrs []tmpBlockAddr
+		for i, size := range sizes {
+			addr, err := tbf.WriteBlockData(testBlock(size, byte(i)), 0)
+			if err != nil {
+				t.Fatalf("unexpected error at block %d: %s", i, err)
+			}
+			addrs = append(addrs, addr)
+		}
+		if gotSpill := tbf.f != nil; gotSpill != wantSpill {
+			t.Fatalf("unexpected spill state for limit=%d, sizes=%v; got %v; want %v", limit, sizes, gotSpill, wantSpill)
+		}
+		if err := tbf.Finalize(); err != nil {
+			t.Fatalf("unexpected error in Finalize: %s", err)
+		}
+		if gotSpill := tbf.r != nil; gotSpill != wantSpill {
+			t.Fatalf("unexpected spill state after Finalize; got %v; want %v", gotSpill, wantSpill)
+		}
+		for i, addr := range addrs {
+			var got []byte
+			if wantSpill {
+				got = fileBytes(tbf, addr)
+			} else {
+				got = memBytes(tbf, addr)
+			}
+			if want := testBlock(sizes[i], byte(i)); !reflect.DeepEqual(got, want) {
+				t.Fatalf("unexpected data at block %d (%s) for limit=%d", i, addr, limit)
+			}
+		}
+	}
+
+	// exact fit stays in memory
+	f(1000, []int{1000}, false)
+	f(1000, []int{400, 600}, false)
+	f(1000, []int{500, 499, 1}, false)
+
+	// one byte over the limit spills
+	f(1000, []int{1001}, true)
+	f(1000, []int{500, 499, 2}, true)
+	f(1000, []int{999, 2}, true)
+
+	// the block bigger than the limit, followed by small blocks
+	f(100, []int{250}, true)
+	f(100, []int{50, 250, 30, 30, 30, 30, 30}, true)
+
+	// the blocks straddle the chunk boundaries
+	n := tmpBlocksChunkSize
+	f(5*n, []int{n - 1, 2, n, n + 1, 5, n - 3, 100}, false)
+	f(4*n, []int{3 * n, n + 1}, true)
+	f(4*n, []int{n / 3, n/3 + 1, n/3 + 1, n / 3, 2 * n, n + 7, n}, true)
+}
+
+func TestTmpBlocksFileReadAfterSpill(t *testing.T) {
+	tbf := getTmpBlocksFile()
+	defer putTmpBlocksFile(tbf)
+	tbf.maxBufLen = 1000
+
+	// The blocks are spread across several flushes of the in-memory part. All of them must be readable from the file.
+	var addrs []tmpBlockAddr
+	for i := range 25 {
+		addr, err := tbf.WriteBlockData(testBlock(100+i, byte(i)), 0)
+		if err != nil {
+			t.Fatalf("unexpected error: %s", err)
+		}
+		addrs = append(addrs, addr)
+	}
+	if tbf.f == nil {
+		t.Fatalf("expecting the spill to file")
+	}
+	if err := tbf.Finalize(); err != nil {
+		t.Fatalf("unexpected error in Finalize: %s", err)
+	}
+	for i, addr := range addrs {
+		if !reflect.DeepEqual(fileBytes(tbf, addr), testBlock(100+i, byte(i))) {
+			t.Fatalf("unexpected data at block %d (%s)", i, addr)
+		}
+	}
+}
+
+func TestTmpBlocksFileReuse(t *testing.T) {
+	// The pool may drop items, so retry until the same tbf is returned.
+	for round := range 100 {
+		tbf := getTmpBlocksFile()
+		tbf.maxBufLen = 300
+		for i := range 10 {
+			if _, err := tbf.WriteBlockData(testBlock(100, byte(round+i)), 0); err != nil {
+				t.Fatalf("unexpected error: %s", err)
+			}
+		}
+		if err := tbf.Finalize(); err != nil {
+			t.Fatalf("unexpected error in Finalize: %s", err)
+		}
+		putTmpBlocksFile(tbf)
+
+		tbf1 := getTmpBlocksFile()
+		if tbf1.offset != 0 || tbf1.bufLen != 0 || len(tbf1.chunks) != 0 || tbf1.f != nil || tbf1.r != nil || tbf1.err != nil {
+			t.Fatalf("unexpected state of the reused tbf: %+v", tbf1)
+		}
+		if tbf1.maxBufLen != maxInmemoryTmpBlocksFile() {
+			t.Fatalf("unexpected maxBufLen; got %d; want %d", tbf1.maxBufLen, maxInmemoryTmpBlocksFile())
+		}
+
+		// The previous data must not be visible.
+		addr, err := tbf1.WriteBlockData(testBlock(64, 200), 0)
+		if err != nil {
+			t.Fatalf("unexpected error: %s", err)
+		}
+		if addr.offset != 0 || !reflect.DeepEqual(memBytes(tbf1, addr), testBlock(64, 200)) {
+			t.Fatalf("unexpected data at the reused tbf: addr=%s", addr)
+		}
+		putTmpBlocksFile(tbf1)
+	}
+}
+
+func TestTmpBlocksFileReuseAfterFailure(t *testing.T) {
+	tmpBlocksDirOrig := tmpBlocksDir
+	tmpBlocksDir = filepath.Join(tmpBlocksDirOrig, "non-existing-dir")
+	defer func() {
+		tmpBlocksDir = tmpBlocksDirOrig
+	}()
+
+	for range 100 {
+		tbf := getTmpBlocksFile()
+		tbf.maxBufLen = 100
+		var failed bool
+		for range 5 {
+			if _, err := tbf.WriteBlockData(testBlock(60, 1), 0); err != nil {
+				failed = true
+			}
+		}
+		if !failed {
+			t.Fatalf("expecting the failed write")
+		}
+		putTmpBlocksFile(tbf)
+
+		tbf1 := getTmpBlocksFile()
+		if tbf1.err != nil || tbf1.bufLen != 0 || tbf1.offset != 0 {
+			t.Fatalf("unexpected state of the tbf reused after the failure: %+v", tbf1)
+		}
+		addr, err := tbf1.WriteBlockData(testBlock(10, 3), 0)
+		if err != nil || addr.offset != 0 {
+			t.Fatalf("unexpected result at the tbf reused after the failure: addr=%s, err=%v", addr, err)
+		}
+		putTmpBlocksFile(tbf1)
+	}
+}
+
+func TestTmpBlocksFileConcurrentShards(t *testing.T) {
+	// Every goroutine writes its own byte pattern, so any sharing of the in-memory data between files shows up as corruption.
+	const goroutines = 8
+	errCh := make(chan error, goroutines)
+	for g := range goroutines {
+		go func() {
+			errCh <- func() error {
+				for round := range 40 {
+					tbf := getTmpBlocksFile()
+					tbf.maxBufLen = 20*tmpBlocksChunkSize + round*1000
+					size := 5000 + g*997
+					count := 150 + round*5
+					seed := byte(g*16 + round)
+					addrs := make([]tmpBlockAddr, count)
+					for i := range addrs {
+						addr, err := tbf.WriteBlockData(testBlock(size, seed+byte(i)), uint(g))
+						if err != nil {
+							return err
+						}
+						addrs[i] = addr
+					}
+					if err := tbf.Finalize(); err != nil {
+						return err
+					}
+					for i, addr := range addrs {
+						var got []byte
+						if tbf.r != nil {
+							got = fileBytes(tbf, addr)
+						} else {
+							got = memBytes(tbf, addr)
+						}
+						if !reflect.DeepEqual(got, testBlock(size, seed+byte(i))) {
+							return fmt.Errorf("goroutine %d, round %d: corrupted block %d (%s)", g, round, i, addr)
+						}
+					}
+					putTmpBlocksFile(tbf)
+				}
+				return nil
+			}()
+		}()
+	}
+	for range goroutines {
+		if err := <-errCh; err != nil {
+			t.Fatalf("unexpected error: %s", err)
+		}
+	}
 }
